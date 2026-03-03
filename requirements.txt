@@ -1,8 +1,0 @@
-google-generativeai
-requests
-python-dotenv
-beautifulsoup4
-pyttsx3
-SpeechRecognition
-pynput
-pywin32
