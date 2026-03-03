@@ -1,0 +1,50 @@
+{
+    "_comment": "Jarvis configuration file. Edit values here — no code changes needed.",
+    "assistant": {
+        "name": "Jarvis",
+        "wake_phrases": [
+            "hey jarvis",
+            "jarvis",
+            "hello jarvis",
+            "ok jarvis",
+            "jarvis suno"
+        ],
+        "active_timeout_seconds": 30,
+        "step_delay_seconds": 0.8,
+        "language": "en-IN"
+    },
+    "tts": {
+        "rate": 175,
+        "volume": 0.95,
+        "jarvis_voice_index": 0,
+        "female_voice_index": 1
+    },
+    "music": {
+        "folder": "",
+        "_comment_folder": "Leave blank to auto-detect %USERPROFILE%/Music. Or set e.g. C:/Users/YourName/Music",
+        "fallback_url": "https://music.youtube.com"
+    },
+    "logging": {
+        "learning_log": "jarvis_learning.json",
+        "user_keywords": "user_keywords.json",
+        "max_log_entries": 500
+    },
+    "ui": {
+        "always_on_top": true,
+        "frameless": false,
+        "width": 420,
+        "height": 420,
+        "show_subtitle": true
+    },
+    "internet": {
+        "check_host": "8.8.8.8",
+        "check_port": 53,
+        "timeout_seconds": 2,
+        "offline_message": "Aap internet se connected nahi hain. Pehle internet connect karein."
+    },
+    "startup": {
+        "_comment": "To auto-start Jarvis on Windows login, run this PowerShell command once:",
+        "_powershell_cmd": "$s=(New-Object -COM WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Startup')+'\\Jarvis.lnk'); $s.TargetPath='pythonw'; $s.Arguments='\"C:\\Users\\pmish\\OneDrive\\Desktop\\web development\\Voice_Assistant\\watchdog_launcher.py\"'; $s.WorkingDirectory='C:\\Users\\pmish\\OneDrive\\Desktop\\web development\\Voice_Assistant'; $s.Save()",
+        "_exe_build": "pyinstaller --onefile --noconsole --icon=jarvis_icon.ico --name=Jarvis main.py"
+    }
+}

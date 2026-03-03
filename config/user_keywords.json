@@ -1,0 +1,17 @@
+{
+    "_comment": "Add your custom keyword→intent mappings here. No code editing needed.",
+    "_format": {
+        "keyword": {
+            "intent": "INTENT_NAME",
+            "entity": "optional-entity"
+        }
+    },
+    "khela": {
+        "intent": "PLAY_MUSIC",
+        "entity": ""
+    },
+    "game khelna": {
+        "intent": "OPEN_APP",
+        "entity": "explorer"
+    }
+}
