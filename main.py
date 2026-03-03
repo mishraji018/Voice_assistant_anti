@@ -1,140 +1,111 @@
-from voice_control import take_command
-from text_to_speech import speak
-from task_automation import do_task
-from command_weather import get_weather
-from command_calculator import calculate
-from command_reminder import set_reminder
-from command_jokes import tell_joke
-from command_email import send_email
-from command_news import get_news
-from command_music import play_music
-from command_system import system_info
-from command_hardware import wifi_control
-from command_calendar import get_calendar_events
-from command_todo import add_todo, list_todos
-from command_translate import translate_text
-from command_notes import take_note
-from command_dict import define_word
-from command_battery import battery_status
-from command_bluetooth import bluetooth_control
-from command_quotes import daily_quote
-from command_email_check import read_emails
-from command_youtube import search_youtube
-from command_stock import get_stock_price
-from command_google_search import google_search
-from command_screenshot import take_screenshot
-from command_clipboard import read_clipboard
-from command_pdf_reader import read_pdf
-from command_code_runner import run_python_code
-from command_random_number import random_number
-from command_horoscope import get_horoscope
 
-def wish():
-    import datetime
-    hour = datetime.datetime.now().hour
-    if hour < 12:
-        speak("Good morning!")
-    elif hour < 18:
-        speak("Good afternoon!")
-    else:
-        speak("Good evening!")
-    speak("I am Jarvis. How may I help you?")
+import os
+import sys
+import threading
+import time
+from dotenv import load_dotenv
 
+# 1. Load Environment FIRST
+env_path = os.path.join(os.path.dirname(__file__), "ni.env")
+load_dotenv(dotenv_path=env_path)
 
-def run_jarvis():
-    wish()
-    while True:
-        query = take_command()
-        if not query:
-            continue
-        if 'weather' in query:
-            get_weather("Delhi")  # Or parse city from query for dynamic city
-        elif 'calculate' in query:
-            expression = query.replace('calculate', '').strip()
-            calculate(expression)
-        elif 'remind me' in query:
-            message = query.replace('remind me', '').strip()
-            set_reminder(message)
-        elif 'joke' in query:
-            tell_joke()
-        elif 'send email' in query:
-            # You'd parse to_address, subject, message from the query or ask interactively
-            send_email("recipient@gmail.com", "Test Subject", "Hello from Jarvis!")
-        # ... existing commands ...
+# 2. Add root to path for brain imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# 3. Imports after env load
+from brain.infra.event_bus import bus
+from core.config import config
+from core.monitor import activity_logger
+from core.audio.voice_control import take_command
+from ui.visual_ui import JarvisUI
 
-def run_jarvis():
-    wish()
-    while True:
-        query = take_command()
-        if 'exit' in query or 'goodbye' in query:
-            speak("Goodbye!")
-            break
-        do_task(query, speak)
+# Initialize Orchestrator to register event handlers
+# Import here ensures orchestrator starts before anything else
+from brain.orchestrator import orchestrator
+from brain.infra.database import init_db
 
+class JarvisApp:
+    def __init__(self):
+        # 0. Initialize Database FIRST
+        init_db()
+        config.validate_config()
+        self.running = True
+        self.ui = None # Initialize as None
+        
+        # Subscribe to events
+        bus.subscribe("SPEECH_REQUESTED", self.handle_ui_feedback)
+        bus.subscribe("SYSTEM_EXIT", self.shutdown)
+
+    def handle_ui_feedback(self, data: dict):
+        """Update UI based on speech events."""
+        if self.ui:
+            if data.get("ui_state"):
+                self.ui.set_state(data.get("ui_state"))
+            if data.get("text"):
+                # Ensure speech feedback updates subtitle or log context
+                self.ui.set_subtitle(data.get("text"))
+
+    def voice_loop(self):
+        """Thread-safe voice recognition loop."""
+        # WAIT for UI to be initialized by main thread
+        while self.ui is None and self.running:
+            time.sleep(0.1)
+            
+        print("[Voice] JARVIS Listening...")
+        while self.running:
+            # Query is captured here
+            query = take_command(ui=self.ui)
+            if query and query.strip():
+                # [FIX]: UI transcript box must show user's spoken text IMMEDIATELY
+                if self.ui:
+                    self.ui.set_subtitle(f"You said: {query}")
+                
+                print(f"[Voice] Captured: {query}")
+                # Emit to Event Bus -> Orchestrator processes it
+                bus.emit("QUERY_RECEIVED", {"query": query, "ui": self.ui})
+            
+            time.sleep(0.1)
+
+    def shutdown(self, _=None):
+        """Graceful shutdown of all threads."""
+        self.running = False
+        print("\n[System] JARVIS shutting down...")
+        bus.emit("FORCE_STOP", {})
+        sys.exit(0)
+
+    def run(self):
+        """Main entry point."""
+        # 1. Start Activity Logger (Background Task)
+        # This will call cleanup_old_activity which now has tables
+        activity_logger.start_logger()
+        
+        # 2. Start Voice Thread (Sensor Task)
+        # It will wait for self.ui to be set before proceeding
+        self.voice_thread = threading.Thread(
+            target=self.voice_loop, 
+            name="VoiceLoop",
+            daemon=True
+        )
+        self.voice_thread.start()
+        
+        print("="*40)
+        print("  JARVIS PRODUCTION SPINE : ONLINE  ")
+        print("="*40)
+        
+        # 3. Initialize UI (Happens on main thread)
+        self.ui = JarvisUI()
+        
+        # 4. Trigger Startup Greeting (Async)
+        bus.emit("STARTUP_GREETING", {})
+        
+        # 5. Start UI Mainloop (BLOCKING)
+        try:
+            self.ui.run()
+        except KeyboardInterrupt:
+            self.shutdown()
 
 if __name__ == "__main__":
-    run_jarvis()
-elif 'news' in query or 'headlines' in query:
-    get_news()
-elif 'play music' in query:
-    play_music()
-elif 'system info' in query:
-    system_info()
-elif 'wifi on' in query:
-    wifi_control(True)
-elif 'wifi off' in query:
-    wifi_control(False)
-elif 'calendar' in query or 'events' in query:
-    get_calendar_events()
-elif 'add task' in query or 'add todo' in query:
-    task = query.replace('add task', '').replace('add todo', '').strip()
-    add_todo(task)
-elif 'show tasks' in query or 'list todos' in query:
-    list_todos()
-elif 'translate' in query:
-    text = query.replace('translate', '').strip()
-    translate_text(text)
-elif 'note' in query:
-    take_note()
-elif 'define' in query:
-    word = query.replace('define', '').strip()
-    define_word(word)
-elif 'battery' in query:
-    battery_status()
-elif 'bluetooth on' in query:
-    bluetooth_control(True)
-elif 'bluetooth off' in query:
-    bluetooth_control(False)
-elif 'quote' in query or 'motivation' in query:
-    daily_quote()
-elif 'check emails' in query:
-    read_emails("your@gmail.com", "yourpassword")
-elif 'youtube' in query:
-    search_youtube(query.replace('youtube', '').strip())
-elif 'stock' in query:
-    symbol = query.split()[-1]   # e.g. "stock AAPL"
-    get_stock_price(symbol)
-elif 'google' in query:
-    google_search(query.replace('google', '').strip())
-elif 'screenshot' in query:
-    take_screenshot()
-elif 'clipboard' in query:
-    read_clipboard()
-elif 'summarize' in query:
-    summarize_text(query.replace('summarize', '').strip())
-elif 'read pdf' in query:
-    read_pdf("example.pdf")
-elif 'add reminder' in query:
-    reminder = query.replace('add reminder', '').strip()
-    add_reminder(reminder, "2025-11-06 18:00")  # For demo – parse actual datetime
-elif 'check reminders' in query:
-    check_reminders()
-elif 'run code' in query:
-    code = query.replace('run code', '').strip()
-    run_python_code(code)
-elif 'random number' in query:
-    random_number()
-elif 'horoscope' in query:
-    get_horoscope('aries')  # For demo – parse real sign if needed
+    app = JarvisApp()
+    app.run()
+
 

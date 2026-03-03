@@ -1,0 +1,26 @@
+# JARVIS Production Requirements
+# Speech & Audio
+speechrecognition
+pyttsx3
+edge-tts
+pygame
+pyserial
+
+# AI & Knowledge
+wikipedia
+requests
+ollama
+
+# UI
+customtkinter
+pillow
+
+# System Control
+psutil
+pyautogui
+pywin32
+python-dotenv
+
+# Architecture & Utilities
+pydantic
+sqlite3

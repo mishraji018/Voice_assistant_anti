@@ -1,4 +1,17 @@
+# Environment
+ni.env
+*.env
+
+# Database
+*.db
+
+# Logs
+*.log
+jarvis.txt
+
+# Python
 __pycache__/
 *.pyc
-.env
-logs/
+
+# Legacy backup
+backup_legacy/
