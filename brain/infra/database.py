@@ -31,6 +31,38 @@ def init_db():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS wellness_log (
+            date TEXT PRIMARY KEY,
+            water_glasses INTEGER DEFAULT 0,
+            exercise_minutes INTEGER DEFAULT 0,
+            sleep_hours REAL DEFAULT 0.0,
+            diet_rating INTEGER DEFAULT 0,
+            mood TEXT DEFAULT 'neutral'
+        )
+    ''')
+
+    # 4. Long-Term Memory (Facts/Preferences)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS memory_store (
+            pk INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE NOT NULL,
+            value TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # 5. Productivity (Tasks/Reminders)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tasks_table (
+            task_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task TEXT NOT NULL,
+            time TEXT,
+            status TEXT DEFAULT 'pending',
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
     print(f"[Database] Initialized at {DB_PATH}")
@@ -70,10 +102,6 @@ def cleanup_old_activity():
     # usually done on startup or periodically.
     print("[Database] Cleaned up logs older than 24 hours.")
 
-# Automatically initialize on import if not already done
+# Only initialize when run directly as a script
 if __name__ == "__main__":
     init_db()
-else:
-    # Safe to call init_db multiple times due to CREATE TABLE IF NOT EXISTS
-    init_db()
-

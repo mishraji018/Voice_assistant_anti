@@ -77,6 +77,39 @@ def _open_folder(name: str) -> str:
             return f"Opening {d}."
     return "Folder not found."
 
+def write_to_notepad(content: str) -> str:
+    """Type content into Notepad using pyautogui."""
+    import time
+    import pyautogui
+    import pygetwindow as gw
+
+    if not content:
+        return "Sir, kya likhna hai notepad mein? Aapne kuch bataya nahi."
+
+    # 1. Ensure Notepad is open
+    notepads = gw.getWindowsWithTitle('Notepad')
+    if not notepads:
+        os.startfile("notepad.exe")
+        time.sleep(1.5) # Wait for launch
+        notepads = gw.getWindowsWithTitle('Notepad')
+    
+    if notepads:
+        try:
+            # 2. Focus window
+            win = notepads[0]
+            if win.isMinimized: win.restore()
+            win.activate()
+            time.sleep(0.5)
+            
+            # 3. Type content
+            pyautogui.write(content, interval=0.01)
+            return f"Sir, maine notepad mein '{content[:20]}...' likh diya hai."
+        except Exception as e:
+            logger.error(f"Notepad write error: {e}")
+            return "Sir, notepad mein likhne mein kuch dikkat aa rahi hai."
+    
+    return "Sir, main notepad open nahi kar pa rahi hoon."
+
 def execute_pc_action(action: str):
     """External trigger for shutdown/restart."""
     if action == "shutdown":

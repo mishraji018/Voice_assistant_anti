@@ -1,4 +1,3 @@
-
 import os
 import sys
 import threading
@@ -56,13 +55,19 @@ class JarvisApp:
             # Query is captured here
             query = take_command(ui=self.ui)
             if query and query.strip():
-                # [FIX]: UI transcript box must show user's spoken text IMMEDIATELY
+                # User text is already shown by take_command() via ui.set_message
+                # Brief pause so user sees their text displayed
+                time.sleep(0.3)
+
+                # Show processing status in subtitle (persistent message stays)
                 if self.ui:
-                    self.ui.set_subtitle(f"You said: {query}")
+                    self.ui.set_subtitle("Processing...")
                 
                 print(f"[Voice] Captured: {query}")
                 # Emit to Event Bus -> Orchestrator processes it
                 bus.emit("QUERY_RECEIVED", {"query": query, "ui": self.ui})
+
+
             
             time.sleep(0.1)
 
@@ -107,5 +112,3 @@ class JarvisApp:
 if __name__ == "__main__":
     app = JarvisApp()
     app.run()
-
-

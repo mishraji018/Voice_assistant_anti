@@ -1,35 +1,11 @@
-"""
-response_manager.py  –  Two-voice conversational feedback system
-=================================================================
-Implements the dual-voice pattern:
-
-  1. FEMALE system voice  →  pre-action announcement
-     e.g. "Opening Chrome…"
-
-  2. JARVIS voice  (default) →  post-action confirmation
-     e.g. "Chrome has been opened successfully."
-
-Speech runs in a dedicated daemon thread with a queue so:
-  • Speech never blocks the main command loop
-  • Exceptions inside pyttsx3 never kill Jarvis
-  • UI always returns to LISTENING after speaking completes
-  • Consecutive speak() calls are queued, never dropped
-
-Public API
-----------
-    from response_manager import ResponseManager
-
-    rm = ResponseManager()
-    rm.pre_action("OPEN_APP", "Chrome")    # female voice
-    # … execute command …
-    rm.post_action("OPEN_APP", "Chrome")   # jarvis voice
-    rm.speak("Custom message.")            # jarvis voice
-"""
 
 import pyttsx3
 import random
 import threading
 import queue as _queue
+import re
+from brain.infra.event_bus import bus
+from core.state.runtime_state import state
 
 # ── Optional: neural voice engine (edge-tts + pygame) ─────────────────────
 try:
@@ -153,38 +129,18 @@ _STOP_SENTINEL = object()
 class ResponseManager:
     """
     Manages dual-voice TTS using a single shared pyttsx3 engine.
-
-    Speech is dispatched through a thread-safe queue so:
-      • The main loop never blocks on pyttsx3
-      • Exceptions inside TTS are caught and logged (Jarvis never crashes)
-      • Every speak() queues a (text, voice_index) pair; the worker thread
-        drains the queue sequentially
-
-    Voice assignment
-    ----------------
-    - voice_index 1  → female system voice (pre-action)
-    - voice_index 0  → default/male Jarvis voice (post-action)
-    If only one voice is installed, both use index 0.
+    Supports streaming (sentence-by-sentence) speech.
     """
 
     def __init__(self, use_neural: bool = True):
-        """
-        Parameters
-        ----------
-        use_neural : If True (default) and voice_engine is available,
-                     use edge-tts neural voice instead of pyttsx3.
-                     Set to False to force the pyttsx3 path.
-        """
         self._q       = _queue.Queue()
-        self._rate    = 175
+        self._rate    = 185 # Slightly faster for better flow
         self._volume  = 0.95
 
-        # ── FIX: event that is SET while TTS is playing, CLEAR when idle ──────
         self._speaking = threading.Event()
         self._done     = threading.Event()
         self._done.set()
 
-        # ── Try to delegate to neural SpeechEngine (edge-tts) ─────────────────
         self._neural = False
         self._se     = None
         if use_neural and _NEURAL_AVAILABLE:
@@ -196,21 +152,16 @@ class ResponseManager:
                 print(f"[ResponseManager] Neural voice unavailable ({exc}), using pyttsx3.")
 
         if not self._neural:
-            # Detect voices before starting thread (avoids race condition)
             _eng = pyttsx3.init()
             self._voices   = _eng.getProperty('voices')
             self._n_voices = len(self._voices)
-            del _eng   # discard; worker thread creates its own engine
+            del _eng
 
             self._jarvis_idx = 0
             self._female_idx = 1 if self._n_voices > 1 else 0
 
             print(f"[ResponseManager] {self._n_voices} pyttsx3 voice(s) found.")
-            print(f"  Jarvis voice : {self._voices[self._jarvis_idx].name}")
-            if self._n_voices > 1:
-                print(f"  System voice : {self._voices[self._female_idx].name}")
 
-            # Start dedicated pyttsx3 speech worker thread
             self._worker = threading.Thread(
                 target=self._speech_worker,
                 name="JarvisTTS",
@@ -218,14 +169,7 @@ class ResponseManager:
             )
             self._worker.start()
 
-    # ── Internal speech worker ─────────────────────────────────────────────
-
     def _speech_worker(self) -> None:
-        """
-        Runs in a dedicated daemon thread.
-        Creates its own pyttsx3 engine so it's never shared across threads.
-        Drains the queue indefinitely; never crashes on TTS exceptions.
-        """
         try:
             engine = pyttsx3.init()
             engine.setProperty('rate',   self._rate)
@@ -239,11 +183,19 @@ class ResponseManager:
                 item = self._q.get()
                 if item is _STOP_SENTINEL:
                     break
+                
+                # Check stop flag before speaking
+                if state.is_stop_requested():
+                    self._clear_queue()
+                    continue
+
                 text, voice_idx = item
                 if not text:
                     continue
 
-                # ── FIX: signal that TTS is actively playing ──────────────────
+                # Signal UI update for this segment (if it's a long stream)
+                bus.emit("SPEECH_SEGMENT_STARTED", {"text": text})
+
                 self._speaking.set()
                 self._done.clear()
 
@@ -252,6 +204,7 @@ class ResponseManager:
                     engine.setProperty('voice', vid)
                 except IndexError:
                     pass
+                
                 print(f"[Voice] {text}")
                 engine.say(text)
                 engine.runAndWait()
@@ -263,27 +216,26 @@ class ResponseManager:
                     self._q.task_done()
                 except Exception:
                     pass
-                # ── FIX: clear speaking flag; set done if queue now empty ─────
                 self._speaking.clear()
                 if self._q.empty():
                     self._done.set()
 
-    # ── Private helper ─────────────────────────────────────────────────────
+    def _clear_queue(self):
+        """Empty the queue immediately."""
+        try:
+            while not self._q.empty():
+                self._q.get_nowait()
+                self._q.task_done()
+        except _queue.Empty:
+            pass
+        self._done.set()
 
     def _enqueue(self, text: str, voice_index: int) -> None:
-        """Push a speech item onto the queue (non-blocking, thread-safe)."""
         if text:
-            # Mark as not-done as soon as we enqueue
             self._done.clear()
             self._q.put((text, voice_index))
 
-    # ── Public API ─────────────────────────────────────────────────────────
-
     def pre_action(self, intent: str, entity: str = "") -> None:
-        """
-        Speak the pre-action phrase using the FEMALE / assistant voice.
-        Call this BEFORE executing the command.
-        """
         pool   = _PRE_ACTION.get(intent, _PRE_ACTION["UNKNOWN"])
         phrase = _pick(pool, entity)
         if phrase:
@@ -293,10 +245,6 @@ class ResponseManager:
                 self._enqueue(phrase, self._female_idx)
 
     def post_action(self, intent: str, entity: str = "") -> None:
-        """
-        Speak the post-action phrase using the JARVIS / confirmation voice.
-        Call this AFTER executing the command.
-        """
         pool   = _POST_ACTION.get(intent, _POST_ACTION["UNKNOWN"])
         phrase = _pick(pool, entity)
         if phrase:
@@ -306,10 +254,7 @@ class ResponseManager:
                 self._enqueue(phrase, self._jarvis_idx)
 
     def speak(self, text: str, use_female: bool = False) -> None:
-        """
-        General-purpose speak with voice selection.
-        Non-blocking: text is queued and spoken asynchronously.
-        """
+        """Standard speak (synchronous queueing)."""
         if not text:
             return
         if self._neural:
@@ -318,19 +263,26 @@ class ResponseManager:
             idx = self._female_idx if use_female else self._jarvis_idx
             self._enqueue(text, idx)
 
-    def set_rate(self, rate: int = 175) -> None:
-        """Adjust speech rate. Takes effect on the next utterance."""
-        self._rate = rate
-
-    def set_volume(self, volume: float = 0.95) -> None:
-        """Adjust volume, 0.0–1.0. Takes effect on the next utterance."""
-        self._volume = volume
-
-    def wait_until_done(self, timeout: float = 10.0) -> None:
+    def speak_streaming(self, text: str, use_female: bool = False) -> None:
         """
-        Block the calling thread until all queued speech has finished.
-        Call this before opening the microphone after a speak() call.
+        Split long text into sentences and speak them progressively.
+        Jarvis starts speaking the first sentence immediately.
         """
+        if not text:
+            return
+        
+        # Split into sentences: matches . ! ? followed by space or end of string
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        
+        for sentence in sentences:
+            if sentence.strip():
+                if self._neural:
+                    self._se.speak(sentence, jarvis=not use_female)
+                else:
+                    idx = self._female_idx if use_female else self._jarvis_idx
+                    self._enqueue(sentence, idx)
+
+    def wait_until_done(self, timeout: float = 15.0) -> None:
         if self._neural and self._se:
             self._se.wait_until_done(timeout=timeout)
         else:
@@ -338,13 +290,11 @@ class ResponseManager:
 
     @property
     def is_speaking(self) -> bool:
-        """True while TTS audio is actively playing."""
         if self._neural and self._se:
             return self._se.is_speaking
         return self._speaking.is_set()
 
     def shutdown(self) -> None:
-        """Stop the speech worker thread cleanly."""
         if self._neural and self._se:
             self._se.shutdown()
         else:

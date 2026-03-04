@@ -4,12 +4,12 @@ speechrecognition
 pyttsx3
 edge-tts
 pygame
-pyserial
 
 # AI & Knowledge
 wikipedia
 requests
 ollama
+beautifulsoup4
 
 # UI
 customtkinter
@@ -20,7 +20,4 @@ psutil
 pyautogui
 pywin32
 python-dotenv
-
-# Architecture & Utilities
-pydantic
-sqlite3
+pytesseract
