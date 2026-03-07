@@ -2,7 +2,7 @@ import sqlite3
 import re
 import logging
 from datetime import datetime
-from brain.infra.database import DB_PATH
+from brain.infra.database import connect_db
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ def update_wellness_metric(metric: str, value):
     """Update a specific wellness metric for today in the SQLite database."""
     today = datetime.now().strftime("%Y-%m-%d")
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_db()
     cursor = conn.cursor()
     
     # 1. Ensure today's row exists
@@ -31,7 +31,7 @@ def update_wellness_metric(metric: str, value):
 def get_today_summary() -> dict:
     """Retrieve today's wellness data."""
     today = datetime.now().strftime("%Y-%m-%d")
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM wellness_log WHERE date = ?", (today,))
     row = cursor.fetchone()

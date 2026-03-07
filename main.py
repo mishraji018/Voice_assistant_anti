@@ -4,111 +4,189 @@ import threading
 import time
 from dotenv import load_dotenv
 
+# ============================================
 # 1. Load Environment FIRST
+# ============================================
 env_path = os.path.join(os.path.dirname(__file__), "ni.env")
 load_dotenv(dotenv_path=env_path)
 
-# 2. Add root to path for brain imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# ============================================
+# 2. Add root to path
+# ============================================
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# 3. Imports after env load
+# ============================================
+# Imports
+# ============================================
 from brain.infra.event_bus import bus
 from core.config import config
 from core.monitor import activity_logger
 from core.audio.voice_control import take_command
+from core.audio.voice_utils import set_response_manager
 from ui.visual_ui import JarvisUI
 
-# Initialize Orchestrator to register event handlers
-# Import here ensures orchestrator starts before anything else
-from brain.orchestrator import orchestrator
+# Initialize orchestrator
 from brain.infra.database import init_db
 
+
 class JarvisApp:
+
     def __init__(self):
-        # 0. Initialize Database FIRST
+
+        # Initialize DB
         init_db()
+        # Initialize orchestrator after DB setup (it starts reminder threads)
+        from brain.orchestrator import orchestrator as _orchestrator
+        self.orchestrator = _orchestrator
+
         config.validate_config()
+
         self.running = True
-        self.ui = None # Initialize as None
-        
-        # Subscribe to events
-        bus.subscribe("SPEECH_REQUESTED", self.handle_ui_feedback)
+        self.ui = None
+
+        # Route utility speech calls through orchestrator's voice manager.
+        set_response_manager(self.orchestrator.rm)
+
+        # Event subscriptions
+        bus.subscribe("SPEECH_REQUESTED", self.handle_speech)
         bus.subscribe("SYSTEM_EXIT", self.shutdown)
 
-    def handle_ui_feedback(self, data: dict):
-        """Update UI based on speech events."""
-        if self.ui:
-            if data.get("ui_state"):
-                self.ui.set_state(data.get("ui_state"))
-            if data.get("text"):
-                # Ensure speech feedback updates subtitle or log context
-                self.ui.set_subtitle(data.get("text"))
+    # =====================================================
+    # Handle speech event
+    # =====================================================
+    def handle_speech(self, data: dict):
 
+        if not data:
+            return
+
+        text = data.get("text")
+        ui_state = data.get("ui_state", "SPEAKING")
+
+        if self.ui:
+            self.ui.set_state(ui_state)
+
+            if text:
+                self.ui.set_subtitle(text)
+
+        if text:
+            print(f"[Jarvis] {text}")
+
+
+        # Return UI to listening state
+        if self.ui:
+            self.ui.set_state("LISTENING")
+
+    # =====================================================
+    # Voice Loop
+    # =====================================================
     def voice_loop(self):
-        """Thread-safe voice recognition loop."""
-        # WAIT for UI to be initialized by main thread
+
+        # Wait for UI
         while self.ui is None and self.running:
             time.sleep(0.1)
-            
+
         print("[Voice] JARVIS Listening...")
+
         while self.running:
-            # Query is captured here
-            query = take_command(ui=self.ui)
-            if query and query.strip():
-                # User text is already shown by take_command() via ui.set_message
-                # Brief pause so user sees their text displayed
-                time.sleep(0.3)
 
-                # Show processing status in subtitle (persistent message stays)
+            try:
+
                 if self.ui:
-                    self.ui.set_subtitle("Processing...")
-                
-                print(f"[Voice] Captured: {query}")
-                # Emit to Event Bus -> Orchestrator processes it
-                bus.emit("QUERY_RECEIVED", {"query": query, "ui": self.ui})
+                    self.ui.set_state("LISTENING")
 
+                query = take_command(ui=self.ui)
 
-            
-            time.sleep(0.1)
+                if not query:
+                    time.sleep(0.25)
+                    continue
 
+                query = query.strip()
+
+                if query:
+
+                    print(f"[Voice] Captured: {query}")
+
+                    if self.ui:
+                        self.ui.set_state("THINKING")
+                        self.ui.set_subtitle("Processing...")
+
+                    bus.emit(
+                        "QUERY_RECEIVED",
+                        {
+                            "query": query,
+                            "ui": self.ui
+                        }
+                    )
+
+                time.sleep(0.1)
+
+            except Exception as e:
+
+                print(f"[VoiceLoop Error] {e}")
+
+                if self.ui:
+                    self.ui.set_state("IDLE")
+
+                time.sleep(1)
+
+    # =====================================================
+    # Shutdown
+    # =====================================================
     def shutdown(self, _=None):
-        """Graceful shutdown of all threads."""
-        self.running = False
-        print("\n[System] JARVIS shutting down...")
-        bus.emit("FORCE_STOP", {})
-        sys.exit(0)
 
+        self.running = False
+
+        print("\n[System] JARVIS shutting down...")
+
+        try:
+            bus.emit("FORCE_STOP", {})
+        except:
+            pass
+
+        os._exit(0)
+
+    # =====================================================
+    # Run Application
+    # =====================================================
     def run(self):
-        """Main entry point."""
-        # 1. Start Activity Logger (Background Task)
-        # This will call cleanup_old_activity which now has tables
+
+        # Start background logger
         activity_logger.start_logger()
-        
-        # 2. Start Voice Thread (Sensor Task)
-        # It will wait for self.ui to be set before proceeding
+
+        # Start voice thread
         self.voice_thread = threading.Thread(
-            target=self.voice_loop, 
+            target=self.voice_loop,
             name="VoiceLoop",
             daemon=True
         )
+
         self.voice_thread.start()
-        
-        print("="*40)
-        print("  JARVIS PRODUCTION SPINE : ONLINE  ")
-        print("="*40)
-        
-        # 3. Initialize UI (Happens on main thread)
+
+        print("=" * 40)
+        print("  JARVIS PRODUCTION SPINE : ONLINE")
+        print("=" * 40)
+
+        # Initialize UI
         self.ui = JarvisUI()
-        
-        # 4. Trigger Startup Greeting (Async)
+
+        # Startup greeting
         bus.emit("STARTUP_GREETING", {})
-        
-        # 5. Start UI Mainloop (BLOCKING)
+
+        # Run UI (fallback to console mode if GUI is unavailable)
         try:
             self.ui.run()
         except KeyboardInterrupt:
             self.shutdown()
+        except Exception as e:
+            print(f"[UI] GUI unavailable, running in console mode: {e}")
+            while self.running:
+                time.sleep(0.5)
 
+
+# =====================================================
+# Entry Point
+# =====================================================
 if __name__ == "__main__":
+
     app = JarvisApp()
     app.run()

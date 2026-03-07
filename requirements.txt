@@ -1,23 +1,15 @@
-# JARVIS Production Requirements
-# Speech & Audio
-speechrecognition
-pyttsx3
-edge-tts
-pygame
-
-# AI & Knowledge
-wikipedia
-requests
-ollama
 beautifulsoup4
-
-# UI
-customtkinter
-pillow
-
-# System Control
+comtypes
+googletrans==4.0.0-rc1
+ollama
+Pillow
 psutil
-pyautogui
-pywin32
+PyAudio
+PyAutoGUI
+PyGetWindow
 python-dotenv
+pyttsx3
 pytesseract
+requests
+SpeechRecognition
+wikipedia

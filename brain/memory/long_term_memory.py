@@ -1,11 +1,8 @@
 
 import sqlite3
-import os
 import re
 from datetime import datetime
-
-# Point to the existing jarvis_memory.db
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "jarvis_memory.db")
+from brain.infra.database import connect_db
 
 class LongTermMemory:
     """
@@ -57,7 +54,7 @@ class LongTermMemory:
 
     def save_fact(self, key: str, value: str):
         """Save a key-value pair to the database."""
-        conn = sqlite3.connect(DB_PATH)
+        conn = connect_db()
         cursor = conn.cursor()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
@@ -73,7 +70,7 @@ class LongTermMemory:
 
     def get_fact(self, key: str) -> str:
         """Retrieve a value from the database."""
-        conn = sqlite3.connect(DB_PATH)
+        conn = connect_db()
         cursor = conn.cursor()
         try:
             cursor.execute("SELECT value FROM memory_store WHERE key = ?", (key,))

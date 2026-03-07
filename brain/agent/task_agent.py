@@ -4,7 +4,11 @@ import logging
 import re
 import threading
 from typing import List, Dict, Any
-import ollama
+
+try:
+    import ollama
+except Exception:
+    ollama = None
 
 from core.state.runtime_state import state
 from brain.knowledge.engine import get_answer, _OLLAMA_MODEL
@@ -21,6 +25,8 @@ class TaskAgent:
 
     def generate_plan(self, query: str) -> List[Dict[str, Any]]:
         """Ask LLM to break the query into a JSON plan."""
+        if ollama is None:
+            return []
         system_prompt = """
         You are a task planning agent for JARVIS.
         Break the user query into a sequence of maximum 5 actionable steps.

@@ -80,8 +80,11 @@ def _open_folder(name: str) -> str:
 def write_to_notepad(content: str) -> str:
     """Type content into Notepad using pyautogui."""
     import time
-    import pyautogui
-    import pygetwindow as gw
+    try:
+        import pyautogui
+        import pygetwindow as gw
+    except Exception:
+        return "Sir, notepad typing ke liye pyautogui aur pygetwindow install hone chahiye."
 
     if not content:
         return "Sir, kya likhna hai notepad mein? Aapne kuch bataya nahi."

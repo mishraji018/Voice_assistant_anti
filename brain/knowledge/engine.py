@@ -1,11 +1,18 @@
-
-import wikipedia
-import ollama
 import logging
 import functools
 import threading
 
 from core.state.runtime_state import state
+
+try:
+    import wikipedia
+except Exception:
+    wikipedia = None
+
+try:
+    import ollama
+except Exception:
+    ollama = None
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +24,8 @@ _OLLAMA_TIMEOUT = 30  # seconds
 
 def fetch_wiki_summary(query: str) -> str:
     """Fetch a concise summary from Wikipedia."""
+    if wikipedia is None:
+        return ""
     try:
         search_results = wikipedia.search(query)
         if not search_results:
@@ -57,6 +66,11 @@ def generate_ai_response(query: str, context: str = "", history: str = "") -> st
     Use a mix of Hindi and English (Hinglish) where appropriate.
     Always call the user 'sir'.
     """
+
+    if ollama is None:
+        if context:
+            return f"Sir, yeh information mili hai: {context}"
+        return "Sir, local AI model (Ollama) abhi available nahi hai. Aap Ollama install/start karke phir try kariye."
 
     last_error = None
     for attempt in range(_OLLAMA_MAX_RETRIES):

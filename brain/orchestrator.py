@@ -6,12 +6,16 @@ from typing import Dict, Any
 
 from brain.infra.event_bus import bus
 from brain.intents import detect_intent
-from brain.learning import get_correction, save_correction
+from brain.learning import (
+    get_correction,
+    save_correction,
+    get_learned_intent,
+    save_learned_intent,
+)
 from brain.knowledge.engine import get_answer
 from brain.knowledge import weather, nutrition
 from brain.health import wellness_tracker
 from brain import capabilities
-from brain.learning import intent_learning
 from brain.vision import screen_analyzer
 from brain.agent.task_agent import task_agent
 from brain.memory import long_term_memory
@@ -131,7 +135,7 @@ class Orchestrator:
         english_text = translate_to_english(text, "auto")
         
         # ── 2b. Intent Learning & Correction Loop ─────────────────────────────
-        learned_intent = intent_learning.get_learned_intent(english_text)
+        learned_intent = get_learned_intent(english_text)
         
         # Check for correction: "No, I meant [Intent]"
         if any(c in english_text for c in ["no i meant", "nahi main", "instead", "use"]):
@@ -140,7 +144,7 @@ class Orchestrator:
                 # For simplicity, if it matches a known intent keyword
                 for known_intent in ["WEATHER", "OPEN_APP", "WELLNESS_TRACKING", "NOTEPAD_WRITE"]:
                      if known_intent.lower().replace("_", " ") in english_text:
-                         intent_learning.save_learned_intent(state.last_query, known_intent)
+                         save_learned_intent(state.last_query, known_intent)
                          self.rm.speak(f"Sir, maine seekh liya hai. Agli baar se '{state.last_query}' bypass ho jayega.", use_female=True)
                          return
 

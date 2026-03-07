@@ -24,30 +24,109 @@ import os
 import subprocess
 import webbrowser
 import datetime
+import logging
 
 # ── Existing modules ────────────────────────────────────────────────────────
 from core.runtime.task_automation import do_task, system_control
-from commands.command_weather    import get_weather
-from commands.command_calculator import calculate
-from commands.command_reminder   import set_reminder
-from commands.command_jokes      import tell_joke
-from commands.command_news       import get_news
-from commands.command_music      import play_music          # now returns (bool, str)
-from commands.command_system     import system_info
-from commands.command_hardware   import wifi_control
-from commands.command_calendar   import get_calendar_events
-from commands.command_todo       import add_todo, list_todos
-from commands.command_notes      import take_note
-from commands.command_dict       import define_word
-from commands.command_battery    import battery_status
-from commands.command_bluetooth  import bluetooth_control
-from commands.command_quotes     import daily_quote
-from commands.command_youtube    import search_youtube, extract_youtube_topic
-from commands.command_stock      import get_stock_price
-from commands.command_google_search import google_search
-from commands.command_screenshot import take_screenshot
-from commands.command_random_number import random_number
-from commands.command_horoscope  import get_horoscope
+logger = logging.getLogger(__name__)
+
+
+def _missing(name: str):
+    def _inner(*args, **kwargs):
+        raise RuntimeError(f"Legacy command '{name}' is not available in this build.")
+    return _inner
+
+
+try:
+    from commands.command_weather import get_weather
+except Exception:
+    get_weather = _missing("get_weather")
+try:
+    from commands.command_calculator import calculate
+except Exception:
+    calculate = _missing("calculate")
+try:
+    from commands.command_reminder import set_reminder
+except Exception:
+    set_reminder = _missing("set_reminder")
+try:
+    from commands.command_jokes import tell_joke
+except Exception:
+    tell_joke = _missing("tell_joke")
+try:
+    from commands.command_news import get_news
+except Exception:
+    get_news = _missing("get_news")
+try:
+    from commands.command_music import play_music
+except Exception:
+    play_music = _missing("play_music")
+try:
+    from commands.command_system import system_info
+except Exception:
+    system_info = _missing("system_info")
+try:
+    from commands.command_hardware import wifi_control
+except Exception:
+    wifi_control = _missing("wifi_control")
+try:
+    from commands.command_calendar import get_calendar_events
+except Exception:
+    get_calendar_events = _missing("get_calendar_events")
+try:
+    from commands.command_todo import add_todo, list_todos
+except Exception:
+    add_todo = _missing("add_todo")
+    list_todos = _missing("list_todos")
+try:
+    from commands.command_notes import take_note
+except Exception:
+    take_note = _missing("take_note")
+try:
+    from commands.command_dict import define_word
+except Exception:
+    define_word = _missing("define_word")
+try:
+    from commands.command_battery import battery_status
+except Exception:
+    battery_status = _missing("battery_status")
+try:
+    from commands.command_bluetooth import bluetooth_control
+except Exception:
+    bluetooth_control = _missing("bluetooth_control")
+try:
+    from commands.command_quotes import daily_quote
+except Exception:
+    daily_quote = _missing("daily_quote")
+try:
+    from commands.command_youtube import search_youtube, extract_youtube_topic
+except Exception:
+    search_youtube = _missing("search_youtube")
+    extract_youtube_topic = lambda *_args, **_kwargs: ""
+try:
+    from commands.command_stock import get_stock_price
+except Exception:
+    get_stock_price = _missing("get_stock_price")
+try:
+    from commands.command_google_search import google_search
+except Exception:
+    google_search = _missing("google_search")
+try:
+    from commands.command_screenshot import take_screenshot
+except Exception:
+    take_screenshot = _missing("take_screenshot")
+try:
+    from commands.command_random_number import random_number
+except Exception:
+    random_number = _missing("random_number")
+try:
+    from commands.command_horoscope import get_horoscope
+except Exception:
+    get_horoscope = _missing("get_horoscope")
+
+
+def speak(_text: str):
+    return None
 
 # ── App name → executable mapping ───────────────────────────────────────────
 APP_MAP: dict[str, str] = {

@@ -40,7 +40,6 @@ class JarvisUI:
     def set_state(self, state: str) -> None:
         with self._lock:
             self._state = state.upper()
-        print(f"[UI] State → {self._state}")
 
     def set_subtitle(self, text: str) -> None:
         with self._lock:

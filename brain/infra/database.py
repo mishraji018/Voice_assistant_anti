@@ -4,10 +4,33 @@ import os
 from datetime import datetime, timedelta
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "jarvis_memory.db")
+DB_URI = DB_PATH
+DB_CONNECT_KWARGS = {}
+_MEMORY_KEEPALIVE = None
+
+
+def _configure_database_backend():
+    global DB_URI, DB_CONNECT_KWARGS, _MEMORY_KEEPALIVE
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("CREATE TABLE IF NOT EXISTS __db_probe (id INTEGER)")
+        conn.commit()
+        conn.close()
+    except sqlite3.Error:
+        DB_URI = "file:jarvis_memory_shared?mode=memory&cache=shared"
+        DB_CONNECT_KWARGS = {"uri": True, "check_same_thread": False}
+        _MEMORY_KEEPALIVE = sqlite3.connect(DB_URI, **DB_CONNECT_KWARGS)
+
+
+def connect_db():
+    return sqlite3.connect(DB_URI, **DB_CONNECT_KWARGS)
+
+
+_configure_database_backend()
 
 def init_db():
     """Initialize the SQLite database with required tables."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_db()
     cursor = conn.cursor()
 
     # 1. Learning Corrections Table
@@ -73,7 +96,7 @@ def log_activity(action_type: str, target_name: str, target_path: str = ""):
     ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
     
     # 1. Save to SQLite
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_db()
     cursor = conn.cursor()
     cursor.execute(
         "INSERT INTO activity_log (action_type, target_name, target_path, timestamp) VALUES (?, ?, ?, ?)",
@@ -92,7 +115,7 @@ def cleanup_old_activity():
     """Remove logs older than 24 hours."""
     cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM activity_log WHERE timestamp < ?", (cutoff,))
     conn.commit()

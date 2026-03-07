@@ -1,11 +1,16 @@
-
-import pyttsx3
 import random
 import threading
 import queue as _queue
 import re
+import os
+from pathlib import Path
 from brain.infra.event_bus import bus
 from core.state.runtime_state import state
+
+try:
+    import pyttsx3
+except Exception:
+    pyttsx3 = None
 
 # ── Optional: neural voice engine (edge-tts + pygame) ─────────────────────
 try:
@@ -13,6 +18,28 @@ try:
     _NEURAL_AVAILABLE = True
 except Exception:
     _NEURAL_AVAILABLE = False
+
+
+def _prepare_windows_tts_cache():
+    """Use a writable COM type cache location for pyttsx3/comtypes on Windows."""
+    if os.name != "nt":
+        return
+    cache_dir = Path(__file__).resolve().parents[2] / ".tts_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("COMTYPES_CACHE", str(cache_dir))
+    try:
+        import comtypes.client  # type: ignore
+        comtypes.client.gen_dir = str(cache_dir)
+    except Exception:
+        # Keep running even if comtypes is unavailable.
+        pass
+
+
+def _init_pyttsx3_engine():
+    if pyttsx3 is None:
+        raise RuntimeError("pyttsx3 is not installed")
+    _prepare_windows_tts_cache()
+    return pyttsx3.init()
 
 # ---------------------------------------------------------------------------
 # Phrase pools
@@ -136,6 +163,7 @@ class ResponseManager:
         self._q       = _queue.Queue()
         self._rate    = 185 # Slightly faster for better flow
         self._volume  = 0.95
+        self._tts_enabled = pyttsx3 is not None
 
         self._speaking = threading.Event()
         self._done     = threading.Event()
@@ -152,10 +180,28 @@ class ResponseManager:
                 print(f"[ResponseManager] Neural voice unavailable ({exc}), using pyttsx3.")
 
         if not self._neural:
-            _eng = pyttsx3.init()
-            self._voices   = _eng.getProperty('voices')
-            self._n_voices = len(self._voices)
-            del _eng
+            if pyttsx3 is None:
+                self._voices = []
+                self._n_voices = 0
+                self._jarvis_idx = 0
+                self._female_idx = 0
+                self._tts_enabled = False
+                print("[ResponseManager] pyttsx3 not installed; speech output disabled.")
+                return
+
+            try:
+                _eng = _init_pyttsx3_engine()
+                self._voices = _eng.getProperty('voices')
+                self._n_voices = len(self._voices)
+                del _eng
+            except Exception as exc:
+                self._voices = []
+                self._n_voices = 0
+                self._jarvis_idx = 0
+                self._female_idx = 0
+                self._tts_enabled = False
+                print(f"[ResponseManager] pyttsx3 init failed ({exc}); speech output disabled.")
+                return
 
             self._jarvis_idx = 0
             self._female_idx = 1 if self._n_voices > 1 else 0
@@ -170,8 +216,10 @@ class ResponseManager:
             self._worker.start()
 
     def _speech_worker(self) -> None:
+        if not self._tts_enabled:
+            return
         try:
-            engine = pyttsx3.init()
+            engine = _init_pyttsx3_engine()
             engine.setProperty('rate',   self._rate)
             engine.setProperty('volume', self._volume)
         except Exception as exc:
@@ -257,6 +305,9 @@ class ResponseManager:
         """Standard speak (synchronous queueing)."""
         if not text:
             return
+        if not self._neural and not self._tts_enabled:
+            print(f"[Jarvis] {text}")
+            return
         if self._neural:
             self._se.speak(text, jarvis=not use_female)
         else:
@@ -269,6 +320,9 @@ class ResponseManager:
         Jarvis starts speaking the first sentence immediately.
         """
         if not text:
+            return
+        if not self._neural and not self._tts_enabled:
+            print(f"[Jarvis] {text}")
             return
         
         # Split into sentences: matches . ! ? followed by space or end of string

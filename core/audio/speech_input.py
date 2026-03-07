@@ -21,7 +21,18 @@ import time
 import speech_recognition as sr
 
 # Stage-0 transliteration: Devanagari → Roman (NEW)
-from brain.nlp.transliterator import transliterate_devanagari, has_devanagari, configure_recognizer
+try:
+    from brain.nlp.transliterator import transliterate_devanagari, has_devanagari, configure_recognizer
+except Exception:
+    def transliterate_devanagari(text: str) -> str:
+        return text
+
+    def has_devanagari(text: str) -> bool:
+        return any("\u0900" <= ch <= "\u097F" for ch in text)
+
+    def configure_recognizer(recognizer) -> None:
+        recognizer.energy_threshold = 300
+        recognizer.dynamic_energy_threshold = True
 # ──────────────────────────────────────────────────────────────
 # Tunable constants
 # ──────────────────────────────────────────────────────────────

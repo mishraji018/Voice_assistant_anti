@@ -1,14 +1,11 @@
 
 import sqlite3
-import os
 import re
 import threading
 import time
 from datetime import datetime
 import logging
-
-# Point to the existing jarvis_memory.db
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "jarvis_memory.db")
+from brain.infra.database import connect_db
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +17,25 @@ class TaskManager:
         self.rm = response_manager
         self._stop_checker = threading.Event()
         self.checker_thread = None
+        self._ensure_schema()
+
+    def _ensure_schema(self):
+        """Create task table when TaskManager is initialized standalone."""
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tasks_table (
+                task_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task TEXT NOT NULL,
+                time TEXT,
+                status TEXT DEFAULT 'pending',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.commit()
+        conn.close()
 
     def start_reminder_checker(self):
         """Starts a background thread to check for due reminders."""
@@ -39,7 +55,7 @@ class TaskManager:
             time.sleep(30) # Check every 30 seconds
 
     def _check_and_alert(self, current_time: str):
-        conn = sqlite3.connect(DB_PATH)
+        conn = connect_db()
         cursor = conn.cursor()
         try:
             cursor.execute("SELECT task_id, task FROM tasks_table WHERE time = ? AND status = 'pending'", (current_time,))
@@ -94,14 +110,14 @@ class TaskManager:
         return None
 
     def add_task(self, task: str, time_val: str = None):
-        conn = sqlite3.connect(DB_PATH)
+        conn = connect_db()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO tasks_table (task, time) VALUES (?, ?)", (task, time_val))
         conn.commit()
         conn.close()
 
     def get_all_tasks(self):
-        conn = sqlite3.connect(DB_PATH)
+        conn = connect_db()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT task, time FROM tasks_table WHERE status = 'pending'")
@@ -110,7 +126,7 @@ class TaskManager:
         return rows
 
     def clear_all_tasks(self):
-        conn = sqlite3.connect(DB_PATH)
+        conn = connect_db()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM tasks_table")
         conn.commit()
