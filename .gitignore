@@ -1,17 +1,6 @@
-# Environment
-ni.env
-*.env
-
-# Database
+dist/
+build/
+.tts_cache/
 *.db
-
-# Logs
 *.log
-jarvis.txt
-
-# Python
 __pycache__/
-*.pyc
-
-# Legacy backup
-backup_legacy/

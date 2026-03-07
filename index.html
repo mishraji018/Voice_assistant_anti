@@ -3,60 +3,263 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Jarvis AI Voice Assistant</title>
 
 <style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Segoe UI, sans-serif;
+}
+
 body{
-    margin:0;
-    font-family:Arial, Helvetica, sans-serif;
-    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    color:white;
-    text-align:center;
+background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+color:white;
+line-height:1.6;
 }
 
-.container{
-    padding:100px 20px;
+/* HERO */
+
+.hero{
+text-align:center;
+padding:120px 20px;
 }
 
-h1{
-    font-size:48px;
+.hero h1{
+font-size:50px;
+margin-bottom:20px;
 }
 
-p{
-    font-size:20px;
-    max-width:700px;
-    margin:auto;
+.hero p{
+font-size:18px;
+opacity:0.9;
+margin-bottom:40px;
 }
 
 .btn{
-    margin-top:30px;
-    display:inline-block;
-    padding:15px 30px;
-    background:#00c6ff;
-    color:black;
-    font-weight:bold;
-    border-radius:10px;
-    text-decoration:none;
+display:inline-block;
+padding:14px 30px;
+border-radius:30px;
+text-decoration:none;
+font-weight:bold;
+margin:10px;
+transition:0.3s;
 }
+
+.btn-primary{
+background:#00c6ff;
+color:black;
+}
+
+.btn-primary:hover{
+background:#00a6d6;
+}
+
+.btn-outline{
+border:2px solid #00c6ff;
+color:#00c6ff;
+}
+
+.btn-outline:hover{
+background:#00c6ff;
+color:black;
+}
+
+/* SECTION */
+
+.section{
+padding:80px 10%;
+text-align:center;
+}
+
+.section h2{
+font-size:36px;
+margin-bottom:40px;
+}
+
+/* FEATURES */
+
+.features{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:30px;
+}
+
+.card{
+background:rgba(255,255,255,0.05);
+padding:30px;
+border-radius:12px;
+transition:0.3s;
+}
+
+.card:hover{
+transform:translateY(-5px);
+background:rgba(255,255,255,0.1);
+}
+
+/* ARCHITECTURE */
+
+.code{
+background:#111;
+padding:25px;
+border-radius:10px;
+text-align:left;
+margin-top:20px;
+}
+
+/* FOOTER */
+
+footer{
+text-align:center;
+padding:30px;
+background:#00000055;
+margin-top:60px;
+}
+
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<!-- HERO -->
+
+<section class="hero">
 
 <h1>🤖 Jarvis AI Voice Assistant</h1>
 
 <p>
-A modular AI powered voice assistant built with Python.
-Supports voice commands, automation, memory system and AI agents.
+A modular AI-powered voice assistant built with Python.  
+Supports voice commands, automation, memory systems and AI agents.
 </p>
 
-<a class="btn" href="https://github.com/mishraji018/Voice_assistant_anti">
+<a class="btn btn-primary"
+href="https://github.com/mishraji018/Voice_assistant_anti">
 View GitHub Repository
 </a>
 
+<a class="btn btn-outline"
+href="https://github.com/mishraji018/Voice_assistant_anti/releases">
+Download EXE
+</a>
+
+</section>
+
+
+<!-- FEATURES -->
+
+<section class="section">
+
+<h2>Features</h2>
+
+<div class="features">
+
+<div class="card">
+<h3>🎤 Voice Commands</h3>
+<p>Control your system and interact using natural speech.</p>
 </div>
+
+<div class="card">
+<h3>🧠 AI Agents</h3>
+<p>Modular AI agent system designed for intelligent task handling.</p>
+</div>
+
+<div class="card">
+<h3>🖥 Jarvis HUD</h3>
+<p>Futuristic UI inspired by Iron Man's Jarvis interface.</p>
+</div>
+
+<div class="card">
+<h3>⚡ Automation</h3>
+<p>Execute system commands and automate productivity tasks.</p>
+</div>
+
+<div class="card">
+<h3>📚 Memory System</h3>
+<p>Store knowledge and improve assistant responses over time.</p>
+</div>
+
+<div class="card">
+<h3>🔊 Voice Responses</h3>
+<p>Natural text-to-speech responses for smooth interaction.</p>
+</div>
+
+</div>
+
+</section>
+
+
+<!-- ARCHITECTURE -->
+
+<section class="section">
+
+<h2>Project Architecture</h2>
+
+<div class="code">
+
+<pre>
+
+Voice_assistant_anti
+│
+├── brain/        AI logic and agents
+├── commands/     Command handlers
+├── core/         Audio engine & runtime
+├── ui/           Jarvis visual interface
+├── config/       Configuration files
+│
+├── main.py       Entry point
+└── requirements.txt
+
+</pre>
+
+</div>
+
+</section>
+
+
+<!-- INSTALLATION -->
+
+<section class="section">
+
+<h2>Installation</h2>
+
+<div class="code">
+
+<pre>
+
+git clone https://github.com/mishraji018/Voice_assistant_anti
+
+cd Voice_assistant_anti
+
+pip install -r requirements.txt
+
+python main.py
+
+</pre>
+
+</div>
+
+</section>
+
+
+<!-- FOOTER -->
+
+<footer>
+
+<p>Created by Mishra Ji</p>
+
+<p>
+GitHub:
+<a style="color:#00c6ff"
+href="https://github.com/mishraji018">
+mishraji018
+</a>
+</p>
+
+</footer>
+
 
 </body>
 </html>
