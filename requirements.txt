@@ -1,6 +1,6 @@
 beautifulsoup4
 comtypes
-googletrans==4.0.0-rc1
+deep-translator
 ollama
 Pillow
 psutil
@@ -13,3 +13,6 @@ pytesseract
 requests
 SpeechRecognition
 wikipedia
+edge-tts
+pyinstaller
+playsound==1.2.2
