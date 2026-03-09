@@ -1,6 +1,25 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# TTS cache
+.tts_cache/
+
+# Backup folders
+backup_legacy/
+
+# Database files
+*.db
+*.db-journal
+
+# Environment
+ni.env
+.env
+
+# Build folders
 dist/
 build/
-.tts_cache/
-*.db
-*.log
-__pycache__/
+
+# Temp files
+file_list.txt
+*.txt
