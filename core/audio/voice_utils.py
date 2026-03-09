@@ -16,7 +16,10 @@ def set_response_manager(rm):
 
 
 def speak(text):
-    """Speak via ResponseManager."""
+    if not text:
+        return
+
     print("Jarvis:", text)
+
     if _rm:
         _rm.speak(text)

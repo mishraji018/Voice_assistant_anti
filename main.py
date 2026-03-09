@@ -55,24 +55,29 @@ class JarvisApp:
     # Handle speech event
     # =====================================================
     def handle_speech(self, data: dict):
-
+        """Handle SPEECH_REQUESTED event — UI updates only, NO speaking here.
+        The orchestrator already calls rm.speak() directly after emitting this event.
+        This handler only updates the UI state and subtitle text.
+        """
         if not data:
             return
 
         text = data.get("text")
         ui_state = data.get("ui_state", "SPEAKING")
 
+        # Update UI state
         if self.ui:
             self.ui.set_state(ui_state)
 
-            if text:
-                self.ui.set_subtitle(text)
+        # Update subtitle (display only — no TTS here)
+        if text and self.ui:
+            self.ui.set_subtitle(text)
 
+        # Log to console
         if text:
             print(f"[Jarvis] {text}")
 
-
-        # Return UI to listening state
+        # Return UI to listening state (brief delay handled by voice_loop)
         if self.ui:
             self.ui.set_state("LISTENING")
 
@@ -97,7 +102,7 @@ class JarvisApp:
                 query = take_command(ui=self.ui)
 
                 if not query:
-                    time.sleep(0.25)
+                    time.sleep(0.1)
                     continue
 
                 query = query.strip()
@@ -154,6 +159,10 @@ class JarvisApp:
         activity_logger.start_logger()
 
         # Start voice thread
+        # Initialize UI FIRST
+        self.ui = JarvisUI()
+
+        # Start voice thread
         self.voice_thread = threading.Thread(
             target=self.voice_loop,
             name="VoiceLoop",
@@ -165,9 +174,6 @@ class JarvisApp:
         print("=" * 40)
         print("  JARVIS PRODUCTION SPINE : ONLINE")
         print("=" * 40)
-
-        # Initialize UI
-        self.ui = JarvisUI()
 
         # Startup greeting
         bus.emit("STARTUP_GREETING", {})

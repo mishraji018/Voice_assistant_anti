@@ -1,23 +1,24 @@
 import speech_recognition as sr
-from core.audio.voice_engine import speak
 
 
 def take_command(ui=None):
     r = sr.Recognizer()
     r.energy_threshold = 300
-    r.pause_threshold = 0.8 
+    r.pause_threshold = 0.8
+
+    # Auto-detect a working microphone; fall back to system default
+    mic_index = None
     try:
-        # Auto-detect a working microphone
-        mic_index = None
         for i, name in enumerate(sr.Microphone.list_microphone_names()):
-            if "Microphone" in name:
+            if "Microphone" in name or "microphone" in name:
                 mic_index = i
                 break
+    except Exception:
+        mic_index = None  # Silently use system default
 
+    try:
         with sr.Microphone(device_index=mic_index) as source:
-
-            # Reduce noise problems
-            r.adjust_for_ambient_noise(source, duration=1)
+            r.adjust_for_ambient_noise(source, duration=0.5)
 
             if ui:
                 ui.set_state("LISTENING")
@@ -26,8 +27,25 @@ def take_command(ui=None):
 
             audio = r.listen(source, timeout=5, phrase_time_limit=8)
 
+    except OSError:
+        # Stream conflict — retry once with system default mic
+        try:
+            with sr.Microphone(device_index=None) as source:
+                r.adjust_for_ambient_noise(source, duration=0.3)
+                audio = r.listen(source, timeout=5, phrase_time_limit=8)
+        except Exception as e:
+            print(f"[Mic Fallback Error] {e}")
+            if ui:
+                ui.set_state("IDLE")
+                ui.set_subtitle("Microphone unavailable")
+            return ""
+
+    except sr.WaitTimeoutError:
+        # User didn't speak within timeout
+        return ""
+
     except Exception as e:
-        print("Microphone error:", e)  # helpful for debugging
+        print(f"[Microphone Error] {e}")
         if ui:
             ui.set_state("IDLE")
             ui.set_subtitle("Microphone unavailable")

@@ -1,42 +1,50 @@
 import threading
 import os
 from pathlib import Path
+import asyncio
+import tempfile
 
-try:
-    import pyttsx3
-except Exception:
-    pyttsx3 = None
+import edge_tts
+import playsound
 
 _lock = threading.Lock()
 
+VOICE = "en-IN-NeerjaNeural"
 
-def _init_engine():
-    if pyttsx3 is None:
-        raise RuntimeError("pyttsx3 is not installed")
-    if os.name == "nt":
-        cache_dir = Path(__file__).resolve().parents[2] / ".tts_cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        os.environ.setdefault("COMTYPES_CACHE", str(cache_dir))
-        try:
-            import comtypes.client  # type: ignore
-            comtypes.client.gen_dir = str(cache_dir)
-        except Exception:
-            pass
-    return pyttsx3.init()
+
+async def _speak_async(text: str):
+    communicate = edge_tts.Communicate(text, VOICE)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+        audio_path = f.name
+
+    await communicate.save(audio_path)
+    playsound.playsound(audio_path)
+
+    try:
+        os.remove(audio_path)
+    except Exception:
+        pass
 
 
 def speak(text: str, ui=None):
-    if not text: return
-    if pyttsx3 is None:
-        print(f"[TTS Disabled] {text}")
+    if not text:
         return
+
     with _lock:
         try:
-            engine = _init_engine()
+            if ui:
+                ui.set_state("SPEAKING")
+
+            asyncio.run(_speak_async(text))
+
+        except RuntimeError:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(_speak_async(text))
+
         except Exception:
-            print(f"[TTS Disabled] {text}")
-            return
-        if ui: ui.set_state("SPEAKING")
-        engine.say(text)
-        engine.runAndWait()
-        if ui: ui.set_state("IDLE")
+            print(f"[TTS Error] {text}")
+
+        finally:
+            if ui:
+                ui.set_state("IDLE")

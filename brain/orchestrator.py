@@ -1,6 +1,8 @@
 
 import os
 import sys
+import time
+import random
 import threading
 from typing import Dict, Any
 
@@ -200,8 +202,11 @@ class Orchestrator:
             response_text = "Always a pleasure to help, sir."
             if "who are you" in text.lower() or "kaun ho" in text.lower():
                 response_text = "I am Jarvis, your smart Hindi-English personal assistant. Main apki help ke liye hamesha taiyar hoon, sir."
+        elif intent == "INFO_QUERY":
+            # ── Direct info lookup: 'who is X', 'what is X', 'tell me about X' ──
+            if ui: ui.set_subtitle("Looking that up...")
+            response_text = get_answer(english_text, history=history)
         
-        # ── 4. Knowledge Engine Fallback (for INFO_QUERY or UNKNOWN) ──────────
         if not response_text and not state.is_stop_requested():
             if ui: ui.set_subtitle("Searching...")
             self.rm.speak("Thoda sabar kijiye sir, main laa rahi hoon...", use_female=True)
@@ -222,15 +227,18 @@ class Orchestrator:
             else:
                 self.rm.speak(response_text)
 
-        # ── 8. Occasional Wellness Reminder ──────────────────────────────────
-        import random
-        if random.random() < 0.15: # 15% chance
+        # ── 8. Wellness Reminder — throttled to max once per 10 minutes ─────
+        # Only reminds the user if at least 10 minutes have passed since the last one.
+        now = time.time()
+        last_reminder = getattr(state, 'last_wellness_reminder_ts', 0)
+        if (now - last_reminder) > 600 and random.random() < 0.20:
             reminder = random.choice([
                 "Sir, thoda pani peelijiye, hydration zaroori hai.",
                 "Sir, thoda break lekar walk kar lijiye, it's good for health.",
                 "Sir, neend achhi lijiye aaj raat, recovery ke liye important hai."
             ])
             self.rm.speak(reminder, use_female=True)
+            state.last_wellness_reminder_ts = now
 
         if ui: ui.set_state("IDLE")
 

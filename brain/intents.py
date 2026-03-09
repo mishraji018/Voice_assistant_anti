@@ -2,9 +2,10 @@
 import re
 from typing import Dict, Any
 
-# Map keywords to intents for rule-based matching
-# Priority is determined by order in dictionary
+# Map keywords to intents for rule-based matching.
+# IMPORTANT: Order determines priority — more specific intents must come first.
 INTENT_PATTERNS = {
+    # ── System / App control ───────────────────────────────────────────────────
     "WEATHER": [
         r"\b(?:weather|mausam|temperature|taapmaan)\b\s*(?:in|me|mein)?\s*(?P<entity>[\w\s]*)",
         r"(?P<entity>[\w\s]*)\s+\b(?:weather|mausam|ka mausam|temperature)\b"
@@ -19,10 +20,6 @@ INTENT_PATTERNS = {
     ],
     "MEDIA_CONTROL": [
         r"\b(?:play|pause|resume|stop music|next|previous|gaana bajao|gaana badlo)\b\s*(?P<entity>[\w\s]*)"
-    ],
-    "COMPLEX_QUERY": [
-        r"\b(?:research|find|analyze|compare|best|top|plan)\b\s*(?:for|about)?\s*(?P<entity>.*)",
-        r"(?P<entity>.*)\s+(?:kaisa hai|kaise karein|plan batao|research karo)"
     ],
     "VISION_QUERY": [
         r"\b(?:read|analyze|what is on|show)\b\s+(?:screen|screenshot|desktop|this text)\b",
@@ -43,6 +40,7 @@ INTENT_PATTERNS = {
         r"\b(?:what is my name|who am i|mera naam kya hai|where do i live|main kahan rehta hoon|what do i like|mujhe kya pasand hai)\b",
         r"\b(?:do you remember|yaad hai)\b\s+(?P<entity>[\w\s]*)"
     ],
+    # ── Browser search (explicit) — must appear BEFORE INFO_QUERY ──────────────
     "BROWSER_SEARCH": [
         r"\b(?:search|google|find)\b\s+(?P<entity>.*)\s+\b(?:on browser|web search|online)\b",
         r"\b(?:browse|open browser and search)\b\s+(?P<entity>.*)"
@@ -63,20 +61,37 @@ INTENT_PATTERNS = {
         r"\b(?:eat|food|fruit|juice|avoid|khana|kha sakte hain|faydemand|nuksan|parhez)\b\s*(?:during|in|mein|me)?\s*(?P<entity>[\w\s]*)",
         r"(?P<entity>[\w\s]*)\s+\b(?:good for|bad for|khana chahiye|nahi khana chahiye)\b"
     ],
+    # ── Web / Info queries — must appear BEFORE COMPLEX_QUERY ─────────────────
     "SEARCH_WEB": [
-        r"\b(?:search|google|find|dhundo|pata karo|look up)\b\s+(?:for|about)?\s*(?P<entity>[\w\s]+)",
+        # Explicit web search requests
+        r"\b(?:search|google|find|dhundo|pata karo|look up)\b\s+(?:for|about)?\s*(?P<entity>[^?]+)",
+        r"\b(?:search for|find me information about|find me)\b\s+(?P<entity>[^?]+)",
         r"(?P<entity>[\w\s]+)\s+\b(?:search karo|dhundo)\b"
     ],
+    # ── INFO_QUERY: "who is", "what is", "tell me about", government officials ──
     "INFO_QUERY": [
-        r"\b(?:what|who|where|how|when|kya|kab|kaise|kahan)\b\s+is\s+(?P<entity>[\w\s?]+)",
-        r"(?P<entity>[\w\s]+)\s+\b(?:batao|kya hai)\b"
+        # 'tell me about X' and 'tell me X'
+        r"\btell\s+me\s+(?:about|regarding)?\s+(?P<entity>[^?]+)",
+        # 'who is/was/are ...', 'what is/was/are ...', 'where is ...', etc.
+        # Uses [^?]+ so 'of', 'the', 'in' inside the entity are captured
+        r"\b(?:who|what|where|when|how|which)\b\s+(?:is|was|are|were|the|do|does|did)?\s*(?P<entity>[^?]+)",
+        # Positional/government role queries: 'chief minister of UP', 'pm of india'
+        r"\b(?:chief minister|prime minister|president|cm|pm|governor|ceo|founder|captain|director)\b\s+(?:of|ka|ki)?\s*(?P<entity>[^?]+)",
+        # Hindi patterns
+        r"(?P<entity>[^?]+)\s+\b(?:batao|kya hai|kaun hai|kisko kehte hain)\b",
+        # 'kya|kab|kaise|kahan + hai/tha/hain'
+        r"\b(?:kya|kab|kaise|kahan|kaun)\b\s+(?:hai|tha|hain|the)?\s*(?P<entity>[^?]+)"
+    ],
+    "COMPLEX_QUERY": [
+        r"\b(?:research|analyze|compare|best|top|plan)\b\s*(?:for|about)?\s*(?P<entity>.*)",
+        r"(?P<entity>.*)\s+(?:kaisa hai|kaise karein|plan batao|research karo)"
     ],
     "CLOSE_WINDOW": [
         r"\b(?:close|exit|quit|band karo|hatao)\b\s+(?P<entity>[\w\s]*)",
         r"(?P<entity>[\w\s]*)\s+\b(?:band karo)\b"
     ],
     "SMALL_TALK": [
-        r"\b(?:hello|hi|jarvis|kaise ho|how are you|hey|namaste|shukriya|thanks)\b"
+        r"\b(?:hello|hi|jarvis|kaise ho|how are you|hey|namaste|shukriya|thanks|thank you)\b"
     ]
 }
 
