@@ -1,254 +1,124 @@
-# 🧠 J.A.R.V.I.S — AI Voice Assistant
+# 🧠 J.A.R.V.I.S — Pro Edition AI Assistant
+
+<p align="center">
+  <img src="https://img.shields.io/badge/AI-Google_Gemini-blue?style=for-the-badge&logo=google-gemini">
+  <img src="https://img.shields.io/badge/Voice-Neural_Edge_TTS-green?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Architecture-Modular_Event--Bus-blueviolet?style=for-the-badge">
+</p>
 
 <p align="center">
   <b>Just A Rather Very Intelligent System</b><br>
-  A modular, futuristic voice assistant inspired by Iron Man's JARVIS.
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10%2B-blue">
-  <img src="https://img.shields.io/badge/Platform-Windows-lightgrey">
-  <img src="https://img.shields.io/badge/Status-Active-success">
-  <img src="https://img.shields.io/badge/License-MIT-orange">
-  <img src="https://img.shields.io/badge/Architecture-Modular-blueviolet">
+  A professional-grade, ultra-responsive AI companion inspired by Stark Industries' JARVIS.
 </p>
 
 ---
 
-# ✨ Overview
-
-**JARVIS AI Voice Assistant** is a modular, extensible voice-controlled assistant built using **Python**.
-
-It listens to voice commands, processes them through a structured **AI architecture**, and responds with synthesized speech while displaying real-time visual feedback through a futuristic interface.
-
-This project explores the architecture of a **real AI assistant system**, combining:
-
-* 🎤 Voice interaction
-* 🧠 Intelligent intent detection
-* ⚙️ Task automation
-* 💾 Persistent memory systems
-* 🧩 Modular AI components
-* 🖥 Real-time visual feedback
-
-The goal is to design an assistant that is **scalable, extensible, and architecturally clean**.
+## 🚀 Project Improvements (Pro Edition)
+> [!IMPORTANT]
+> This repository has been recently upgraded to **Professional Architecture**.
+> - **Gemini Integration**: Now powered by Google Gemini for ultra-fast, intelligent reasoning.
+> - **Neural Voice Engine**: Switched to high-fidelity Edge-TTS for human-like natural speech.
+> - **Flash Logic**: Bypassed heavy translation delays for real-time "Flash" responses.
+> - **Follow-up Window**: Implemented a 10-second active listening window for natural conversation flow.
+> - **Smart Repeat**: Instant playback functionality for repeating last responses.
 
 ---
 
-# 🎬 Demo
+## ✨ Overview
 
-<p align="center">
-  <img src="assets/jarvis_demo.gif" width="700">
-</p>
+**J.A.R.V.I.S** is not just a script; it's a modular ecosystem for AI interaction. It combines real-time speech recognition, advanced intent detection, and multi-layered memory to provide a seamless assistant experience.
 
-*Jarvis responding to voice commands in real time.*
+Built with a focus on **latency optimization** and **architectural elegance**, it supports Hinglish (Hindi + English) naturally, making it perfect for bilingual users.
 
 ---
 
-# 🚀 Features
+## 🛠 Features
 
-🎤 **Voice Command Recognition**
-Speak naturally and the assistant understands commands.
-
-🧠 **Modular AI Brain**
-Organized architecture with independent agents and subsystems.
-
-🖥 **Jarvis-style HUD Interface**
-Visual UI inspired by futuristic AI assistants.
-
-💾 **Memory System**
-Stores assistant knowledge using a local database.
-
-⚙ **Command Automation**
-Execute system commands and productivity tasks.
-
-🔊 **Text-to-Speech Engine**
-Assistant responds with synthesized voice.
-
-🧩 **Extensible Architecture**
-Easily add new commands, modules, and AI agents.
+| Feature | Description |
+| :--- | :--- |
+| 🧠 **Hinglish Brain** | Understands and speaks in mixed Hindi/English naturally. |
+| 👁️ **Vision Analysis** | Can "see" your screen and answer questions about what's visible. |
+| 💾 **Long-Term Memory** | Remembers past interactions and learns from corrections. |
+| 🎙️ **Streaming TTS** | Starts speaking long paragraphs sentence-by-sentence to reduce latency. |
+| ⚙️ **System Control** | Manage apps, volume, brightness, and system states via voice. |
+| 🏥 **Wellness Tracker** | Proactively reminds you to drink water, exercise, and take breaks. |
+| 📅 **Productivity** | Built-in task manager with daily routines and reminders. |
 
 ---
 
-# 🧰 Tech Stack
+## 🏗 Modular Architecture
 
-* **Python 3.11**
-* SpeechRecognition
-* Edge-TTS / Pyttsx3
-* SQLite (assistant memory database)
-* Event-driven architecture
-* PyInstaller (executable builds)
+The project follows a decoupling principle using a central **Event Bus**.
 
----
-
-# 📥 Download (Executable)
-
-If you just want to run the assistant:
-
-➡ Download the **Windows executable** from the Releases page:
-
-https://github.com/mishraji018/Voice_assistant_anti/releases
-
-### Steps
-
-1. Download the `.exe`
-2. Run **Jarvis_AI_Assistant.exe**
-3. Allow microphone access
-4. Start speaking commands
-
-No Python installation required.
-
----
-
-# 🛠 Installation (For Developers)
-
-Clone the repository:
-
+```mermaid
+graph TD
+    A[Voice Input] --> B[Speech Recognition]
+    B --> C[Event Bus]
+    C --> D[Intent Detector]
+    D --> E{Orchestrator}
+    E --> F[Gemini Knowledge]
+    E --> G[System Commands]
+    E --> H[Memory Engine]
+    F --> I[Response Manager]
+    G --> I
+    H --> I
+    I --> J[Neural TTS Output]
 ```
+
+### Directory Structure
+- `brain/`: The "Spirit" — Gemini logic, memory engines, and task agents.
+- `core/`: The "Spine" — Audio drivers, state management, and runtime monitors.
+- `commands/`: The "Hands" — Individual command handlers for system automation.
+- `ui/`: The "Face" — Futuristic HUD and visual feedback system.
+
+---
+
+## 🚦 Quick Start
+
+### 1. Prerequisites
+- Python 3.10+
+- Internet connection (for Gemini & Edge-TTS)
+
+### 2. Installation
+```powershell
+# Clone the repository
 git clone https://github.com/mishraji018/Voice_assistant_anti.git
 cd Voice_assistant_anti
-```
 
-Create a virtual environment:
-
-```
+# Create virtual environment
 python -m venv venv
-```
+.\venv\Scripts\activate
 
-Activate environment (Windows):
-
-```
-venv\Scripts\activate
-```
-
-Install dependencies:
-
-```
+# Install requirements
 pip install -r requirements.txt
 ```
 
-Run the assistant:
-
+### 3. Setup Environment
+Create a `ni.env` file in the root directory and add your API keys:
+```env
+GEMINI_API_KEY=your_key_here
 ```
+
+### 4. Run
+```powershell
 python main.py
 ```
 
 ---
 
-# 🧠 Architecture
-
-The project follows a **modular AI assistant architecture**.
-
-```
-Voice_assistant_anti
-│
-├── brain/        → AI logic, memory and agents
-├── commands/     → Command handlers
-├── core/         → Audio engine, runtime system
-├── ui/           → Jarvis visual interface
-├── config/       → Configuration system
-├── legacy/       → Previous architecture modules
-│
-├── main.py       → Application entry point
-└── requirements.txt
-```
-
----
-
-# ⚙ System Flow
-
-```
-Voice Input
-      ↓
-Speech Recognition
-      ↓
-Intent Detection
-      ↓
-Orchestrator (Central Brain)
-      ↓
-Command / Knowledge Modules
-      ↓
-Response Manager
-      ↓
-Voice Output
-```
-
----
-
-# 🧩 Design Philosophy
-
-The assistant is built with a focus on **clean architecture**.
-
-Key principles:
-
-* Modular system design
-* Event-driven communication
-* Separation of responsibilities
-* Easily extensible command system
-* Scalable AI architecture
-
-This allows the assistant to evolve with **new features, plugins, and AI modules**.
-
----
-
-# 🎙 Example Use Cases
-
-The assistant can be expanded to perform:
-
-* system automation
-* productivity commands
-* voice-controlled tasks
-* screen analysis
-* memory-based responses
-* custom AI agents
-
----
-
-# 🔮 Future Roadmap
-
-Planned improvements include:
-
-* Wake word detection (**"Hey Jarvis"**)
-* Local AI model integration
-* Smarter contextual memory
-* Real-time voice waveform UI
-* Cross-platform support
-* Plugin-based command system
-
----
-
-# 🤝 Contributing
-
-Contributions are welcome.
-
-If you want to improve the assistant:
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Submit a Pull Request
-
----
-
-# 👨‍💻 Author
+## 👨‍💻 Author
 
 **Pawan Mishra**
+*Computer Science Student | AI Full-Stack Developer*
 
-Computer Science Student
-Python Developer | AI Enthusiast
-
-GitHub
-https://github.com/mishraji018
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/mishraji018)
+[![Portfolio](https://img.shields.io/badge/Portfolio-FF5722?style=for-the-badge&logo=google-chrome&logoColor=white)](https://pawan-mishra.com)
 
 ---
 
-# ⭐ Support the Project
-
-If you like this project, consider giving it a **star ⭐ on GitHub**.
-
-It helps the project grow and motivates further development.
-
----
+## ⭐ Support
+If this project inspired you or helped your research, please give it a **Star**! It keeps the development alive.
 
 <p align="center">
-Built with ❤️ and curiosity about intelligent systems
+  Built with ❤️ by Pawan Mishra
 </p>
