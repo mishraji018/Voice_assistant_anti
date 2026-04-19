@@ -10,6 +10,9 @@ class RuntimeState:
         self.last_checkin_dt = None # Stores date string (YYYY-MM-DD)
         self.last_query = None
         self.last_intent = None
+        self.last_activity_time = 0.0 # Timestamp of the last wake-word or response
+        self.last_response = None # Stores the text of the last AI response
+        self.last_response_use_female = False
 
     def request_stop(self):
         """Signal all processing threads to stop."""

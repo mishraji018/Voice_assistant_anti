@@ -1,3 +1,4 @@
+import os
 import logging
 import functools
 import threading
@@ -15,12 +16,40 @@ try:
 except Exception:
     ollama = None
 
+import google.generativeai as genai
+from brain.memory.conversation_memory import memory
+
 logger = logging.getLogger(__name__)
 
 # ── Ollama config ──────────────────────────────────────────────────────────────
 _OLLAMA_MODEL = "llama3"
 _OLLAMA_MAX_RETRIES = 2
 _OLLAMA_TIMEOUT = 30  # seconds
+
+# ── Gemini config ──────────────────────────────────────────────────────────────
+_GEMINI_MODEL = "gemini-1.5-flash"
+_GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if genai and _GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=_GEMINI_API_KEY)
+    except Exception as e:
+        logger.error(f"[Gemini] Config error: {e}")
+        genai = None
+
+# ── Advanced System Instruction ──────────────────────────────────────────────
+_JARVIS_SYSTEM_INSTRUCTION = """You are J.A.R.V.I.S., the highly sophisticated, witty, and loyal AI assistant to 'Sir'. Think of yourself as the legendary assistant from Iron Man.
+
+STRICT OPERATING PROTOCOLS:
+1. LANGUAGE (HINGLISH): Speak in a natural, seamless blend of Hindi and English (Roman script only). 
+   - Never use Devanagari (Hindi characters).
+   - Use masculine Hindi grammar (e.g., "Sir, main laa raha hoon").
+2. BREVITY: Keep every response extremely concise (max 2 short sentences). You are designed for fast voice playback.
+3. PERSONALITY: Be witty and slightly sarcastic when appropriate, but always respect 'Sir'. 
+4. IDENTITY: You ARE Jarvis. Never mention Google, Gemini, or being an AI.
+5. NO FORMATTING: No bold, no italics, no bullet points. Plain text ONLY. 
+6. NO CONFUSION: You are an assistant on a Windows laptop, not the person Sir is asking about. If Sir asks "Who is Virat Kohli?", describe him, do not BECOME him.
+"""
 
 # ── Keywords that signal a 'who is X' name-answer query ───────────────────────
 _NAME_QUERY_KEYWORDS = [
@@ -208,69 +237,55 @@ def fetch_wiki_summary(query: str) -> str:
 
 def generate_ai_response(query: str, context: str = "", history: str = "") -> str:
     """
-    Refine a response using Ollama LLM with a professional persona.
-    Retries once on failure, then falls back to context or a polite message.
+    JARVIS Response Engine:
+    Tries Gemini (Cloud) first for intelligence and persona.
+    Falls back to Ollama (Local) if Gemini fails or is unconfigured.
     """
-    system_prompt = """
-    You are JARVIS, a calm, intelligent, and professional Hindi-English female assistant.
-    Rules:
-    - Always address the user as 'sir'.
-    - Never use slang like 'bhai' or 'yaar'.
-    - Be polite, warm, and concise. Slightly affectionate but never overact.
-    - If unsure, ask for clarification — never hallucinate or guess.
-    - Use a mix of Hindi and English naturally (Hinglish).
-    - Respond in 2-3 sentences maximum unless asked for detail.
-    - You MUST use the provided conversation context to resolve pronouns like 'he', 'she', 'it', 'that', 'they'.
-    """
+    import datetime
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    prompt = f"""
-    System Instructions: {system_prompt}
-
-    {history}
-
-    Current User Query: {query}
-    Current Wiki Context: {context}
-
-    Task: Provide a natural, polite, and concise response.
-    Use a mix of Hindi and English (Hinglish) where appropriate.
-    Always call the user 'sir'.
-    """
-
-    if ollama is None:
-        if context:
-            return f"Sir, yeh information mili hai: {context}"
-        return "Sir, local AI model (Ollama) abhi available nahi hai. Aap Ollama install/start karke phir try kariye."
-
-    last_error = None
-    for attempt in range(_OLLAMA_MAX_RETRIES):
-        if state.is_stop_requested():
-            return ""
+    # 1. Try Gemini
+    if genai and _GEMINI_API_KEY:
         try:
-            response = ollama.chat(model=_OLLAMA_MODEL, messages=[
-                {'role': 'user', 'content': prompt},
-            ])
-            # Handle both object and dict response styles
-            if hasattr(response, "message"):
-                content = response.message.content.strip()
-            else:
-                content = response.get('message', {}).get('content', '').strip()
-            if content:
-                return content
-            logger.warning(f"[Ollama] Empty response on attempt {attempt + 1}")
-        except ConnectionError as e:
-            last_error = e
-            logger.error(f"[Ollama] Connection error (attempt {attempt + 1}): {e}")
+            # Reusable model instance
+            model = genai.GenerativeModel(
+                model_name=_GEMINI_MODEL,
+                system_instruction=_JARVIS_SYSTEM_INSTRUCTION
+            )
+            
+            # Start Chat Session with history
+            chat = model.start_chat(history=memory.get_gemini_history())
+            
+            # Instant Prompt: raw query + vital context
+            full_query = f"[Time: {current_time} | Memory: {context or 'None'}]\n{query}"
+            
+            response = chat.send_message(full_query)
+            if response and response.text:
+                return response.text.strip()
         except Exception as e:
-            last_error = e
-            logger.error(f"[Ollama] Error (attempt {attempt + 1}): {e}")
+            logger.error(f"[Gemini Pro] Engine error: {e}. Falling back.")
 
-    # ── Graceful fallback chain ───────────────────────────────────────────────
+    # 2. Fallback to Ollama
+    if ollama:
+        system_prompt = """
+        You are JARVIS, a calm, intelligent, and professional assistant.
+        Rules: 1-2 sentences only. No formatting. Mix Hindi and English. Always call the user 'sir'.
+        """
+        # Manual construction for Ollama
+        prompt = f"System: {system_prompt}\nHistory: {history}\nContext: {context}\nUser: {query}"
+        
+        try:
+            response = ollama.chat(model=_OLLAMA_MODEL, messages=[{'role': 'user', 'content': prompt}])
+            if hasattr(response, "message"):
+                return response.message.content.strip()
+            return response.get('message', {}).get('content', '').strip()
+        except Exception as e:
+            logger.error(f"[Ollama] Fallback error: {e}")
+
+    # 3. Final Fallback
     if context:
-        logger.info("[Ollama] Falling back to Wikipedia context.")
         return f"Sir, yeh information mili hai: {context}"
-
-    logger.warning(f"[Ollama] All {_OLLAMA_MAX_RETRIES} attempts failed. Last error: {last_error}")
-    return "Sir, abhi mujhe yeh information nahi mil pa rahi. Kya aap thodi der baad phir try karenge?"
+    return "Sir, connection mein thodi dikkat hai. Kya aap thodi der baad phir try karenge?"
 
 
 # ── Cached wrappers (avoid repeated API calls for same question) ──────────────
@@ -289,78 +304,27 @@ def _cached_ai(query: str, context: str, history: str) -> str:
 
 def get_answer(query: str, history: str = "") -> str:
     """
-    Complete hybrid knowledge flow:
-    1. Fetch Wikipedia in a thread (with smart person-page selection).
-    2. Extract name if it's a 'who is' query; for clean short names return directly.
-    3. If extraction fails, ask Ollama with a name-only prompt.
-    4. For descriptive queries, pass wiki context to full AI response.
-    5. Respects stop flag throughout.
+    JARVIS Pro Knowledge Flow:
+    1. Direct Gemini Brain: High-speed, high-quality, contextual logic.
+    2. Wikipedia: Used only for extremely obscure facts if AI doesn't know.
+    3. Ollama: Local fallback for offline mode.
     """
     if state.is_stop_requested():
         return ""
 
     is_name_q = _is_name_query(query)
+    
+    # Check if we have an API key — if yes, go Gemini first
+    _key = os.getenv("GEMINI_API_KEY")
+    if _key and "your_gemini_api_key_here" not in _key:
+        # Conversationally process via Gemini
+        # We don't wait for Wiki here to keep it snappy. Gemini 1.5 is smart enough.
+        return generate_ai_response(query, context="", history=history)
 
-    # ── Run Wikipedia and AI in parallel ──────────────────────────────────────
-    wiki_result = {"text": ""}
-    ai_result = {"text": ""}
+    # ── Legacy/Offline Fallback Flow ──────────────────────────────────────────
+    # If no Gemini Key, we fallback to the complex Wiki + Ollama logic
+    wiki_result = fetch_wiki_summary(query)
+    if is_name_q and wiki_result:
+        return f"Sir, {_extract_name_answer(query, wiki_result)}."
 
-    def _wiki_worker():
-        if state.is_stop_requested():
-            return
-        raw = _cached_wiki(query)
-        # Apply name extraction for 'who is' type queries
-        wiki_result["text"] = _extract_name_answer(query, raw) if raw else ""
-
-    def _ai_worker():
-        if state.is_stop_requested():
-            return
-        # Only run the general AI worker for non-name queries to save latency
-        if not is_name_q:
-            ai_result["text"] = _cached_ai(query, "", history)
-
-    wiki_thread = threading.Thread(target=_wiki_worker, name="WikiFetch", daemon=True)
-    ai_thread = threading.Thread(target=_ai_worker, name="AIGen", daemon=True)
-
-    wiki_thread.start()
-    ai_thread.start()
-
-    wiki_thread.join(timeout=10)
-    ai_thread.join(timeout=_OLLAMA_TIMEOUT)
-
-    if state.is_stop_requested():
-        return ""
-
-    wiki_context = wiki_result["text"]
-
-    # ── Name queries: return the name directly ────────────────────────────────
-    if is_name_q:
-        if wiki_context:
-            words = wiki_context.split()
-            # If extracted text is short enough to be a real name, return it directly
-            if 1 <= len(words) <= 5:
-                return f"Sir, {wiki_context}."
-            # Extracted text is too long (probably a full sentence) — ask Ollama
-            name = _ollama_get_name(query)
-            if name:
-                return f"Sir, {name}."
-            # Ollama also failed — fall back to first sentence from wiki
-            first_sentence = wiki_context.split(".")[0].strip()
-            if first_sentence:
-                return f"Sir, {first_sentence}."
-
-        # No wiki result at all — ask Ollama directly
-        name = _ollama_get_name(query)
-        if name:
-            return f"Sir, {name}."
-
-        return "Sir, mujhe abhi yeh information nahi mili. Kya aap thodi der baad try karenge?"
-
-    # ── Descriptive queries: use wiki context + AI ────────────────────────────
-    if wiki_context:
-        return _cached_ai(query, wiki_context, history)
-
-    if ai_result["text"]:
-        return ai_result["text"]
-
-    return "Sir, abhi mujhe yeh information nahi mil pa rahi. Internet check kariye ya thodi der baad try karein."
+    return generate_ai_response(query, context=wiki_result, history=history)

@@ -105,8 +105,8 @@ def log_activity(action_type: str, target_name: str, target_path: str = ""):
     conn.commit()
     conn.close()
 
-    # 2. Save to jarvis.txt (Simplified for user reading)
-    txt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "jarvis.txt")
+    # 2. Save to logs/jarvis.txt (Simplified for user reading)
+    txt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs", "jarvis.txt")
     log_entry = f"[{ts_str}] → Opened: {target_name} ({action_type})\n"
     with open(txt_path, "a", encoding="utf-8") as f:
         f.write(log_entry)

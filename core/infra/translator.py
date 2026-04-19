@@ -4,7 +4,7 @@ translator.py  –  Hindi / Hinglish → English translation layer
 Works in three stages:
   0. Transliterate Devanagari → Roman  (transliterator.py, Stage 0 safety net)
   1. Token-level substitution from HINDI_DICT  (offline, fast, ~150 entries)
-  2. Falls back to googletrans for anything the dict missed
+  2. Falls back to deep-translator (GoogleTranslator) for anything the dict missed
 
 Usage
 -----
@@ -25,6 +25,7 @@ HINDI_DICT: dict[str, str] = {
     "kholo"             : "open",
     "khol do"           : "open",
     "khol"              : "open",
+    "uthao"             : "open",
     "band karo"         : "close",
     "band kar"          : "close",
     "band"              : "close",
@@ -213,18 +214,17 @@ def _dict_translate(text: str) -> str:
     return result
 
 
-def _googletrans_translate(text: str, src: str = 'hi') -> str:
+def _deep_translate(text: str, src: str = 'hi') -> str:
     """
-    Use googletrans as a fallback.  Returns original text on any error.
-    Compatible with googletrans==4.0.0-rc1.
+    Use deep-translator (GoogleTranslator) as a fallback.
+    Returns original text on any error (network unavailable, quota, etc.).
+    Compatible with deep-translator >= 1.9.0.
     """
     try:
-        from googletrans import Translator
-        translator = Translator()
-        result = translator.translate(text, src=src, dest='en')
-        return result.text.lower()
+        from deep_translator import GoogleTranslator
+        return GoogleTranslator(source=src, target='en').translate(text).lower()
     except Exception:
-        # Network unavailable or wrong version – just return what we got
+        # Network unavailable or translation failed – just return what we got
         return text
 
 
@@ -254,9 +254,9 @@ def translate_to_english(text: str, lang: str = 'en') -> str:
     # Step 1 – dict substitution (works for Hinglish Roman keys)
     translated = _dict_translate(text)
 
-    # Step 2 – if any Devanagari somehow still remains, try Google Translate API
+    # Step 2 – if any Devanagari somehow still remains, try deep-translator
     if any('\u0900' <= ch <= '\u097F' for ch in translated):
-        translated = _googletrans_translate(translated, src='hi')
+        translated = _deep_translate(translated, src='hi')
 
     print(f"[Translator] '{text}' → '{translated}'")
     return translated

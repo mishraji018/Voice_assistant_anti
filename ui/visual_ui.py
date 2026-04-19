@@ -138,7 +138,7 @@ class JarvisUI:
         p2_rad = 155
         x2 = CX + p2_rad * math.cos(math.radians(self._p1_angle * 0.7))
         y2 = CY + p2_rad * math.sin(math.radians(self._p1_angle * 0.7))
-        p2_color = ACCENT_AMBER if state == "THINKING" else ACCENT_PURPLE
+        p2_color = ACCENT_AMBER if state in ["THINKING", "INITIALIZING"] else ACCENT_PURPLE
         c.create_oval(x2-3, y2-3, x2+3, y2+3, fill=p2_color, outline="")
 
         # 4. Central Orb
@@ -150,13 +150,16 @@ class JarvisUI:
         elif state == "THINKING":
             # Slow deep breathe effect
             pulse = 1.0 + 0.06 * math.sin(t * 1.5)
+        elif state == "INITIALIZING":
+            # Quick amber pulse
+            pulse = 0.9 + 0.1 * math.sin(t * 4)
             
         r = ORB_R * pulse
         
         # Orb outline color changes by state
         orb_outline = "#004455"
         orb_glow    = "#00e5ff"
-        if state == "THINKING":
+        if state in ["THINKING", "INITIALIZING"]:
             orb_outline = "#664400"
             orb_glow    = ACCENT_AMBER
         

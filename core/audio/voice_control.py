@@ -3,8 +3,10 @@ import speech_recognition as sr
 
 def take_command(ui=None):
     r = sr.Recognizer()
-    r.energy_threshold = 300
-    r.pause_threshold = 0.8
+    r.energy_threshold = 120
+    r.dynamic_energy_threshold = True
+    r.dynamic_energy_adjustment_damping = 0.15
+    r.pause_threshold = 0.5
 
     # Auto-detect a working microphone; fall back to system default
     mic_index = None
@@ -55,8 +57,9 @@ def take_command(ui=None):
         query = r.recognize_google(audio, language="en-in").lower()
 
         if ui:
+            ui.set_subtitle(f'Captured: "{query}"')
             ui.set_message(f"You: {query}", "#a0b0d0")
-            ui.set_subtitle("")
+            # We don't clear the subtitle immediately so the user can read it
 
         return query
 

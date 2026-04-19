@@ -30,28 +30,16 @@ from core.state.runtime_state import state
 from brain.memory.conversation_memory import memory
 from commands.system import command_system
 
-# ── Stop words (matched as substrings) ────────────────────────────────────────
+# ── Constants ────────────────────────────────────────────────────────────────
+WAKE_PHRASES = ["jarvis", "hello jarvis", "hi jarvis", "listen jarvis", "hey jarvis"]
+REPEAT_KEYWORDS = ["repeat", "wapas", "firse", "fir se", "again", "pardon", "kya bola", "once more", "kya?", "kya"]
 STOP_WORDS = ["stop", "ruko", "bas", "cancel", "band karo"]
+FOLLOWUP_WINDOW = 10.0 # seconds
+WELLNESS_COOLDOWN = 600 # 10 minutes
 
-# ── Wake words ────────────────────────────────────────────────────────────────
-WAKE_PHRASES = ["hey jarvis", "hello jarvis", "hi jarvis", "ok jarvis", "okay jarvis"]
-WAKE_EXACT = ["jarvis"]
-
-
-def _contains_any(text: str, phrases: list) -> bool:
+def _contains_stop(text: str) -> bool:
     text_lower = text.lower()
-    return any(phrase in text_lower for phrase in phrases)
-
-
-def _is_wake_only(text: str) -> bool:
-    cleaned = text.strip().lower()
-    if cleaned in WAKE_EXACT: return True
-    for phrase in WAKE_PHRASES:
-        if cleaned == phrase: return True
-        if cleaned.startswith(phrase):
-            remainder = cleaned[len(phrase):].strip()
-            if not remainder or remainder in ["", ".", "?", "!"]: return True
-    return False
+    return any(phrase in text_lower for phrase in STOP_WORDS)
 
 
 class Orchestrator:
@@ -74,9 +62,9 @@ class Orchestrator:
         bus.subscribe("SPEECH_SEGMENT_STARTED", self.handle_speech_segment)
 
     def startup_greeting(self, _=None):
-        response = "Hi, I am Jarvis. Kya madad kar sakti hoon aapki?"
+        response = "Hi, I am Jarvis. Kya madad kar sakta hoon aapki?"
         bus.emit("SPEECH_REQUESTED", {"text": response, "ui_state": "SPEAKING"})
-        self.rm.speak(response, use_female=True)
+        self.rm.speak(response, use_female=False)
 
     def handle_speech_segment(self, data: Dict[str, Any]):
         """Update UI subtitle as each sentence is spoken."""
@@ -93,7 +81,7 @@ class Orchestrator:
         if not text: return
 
         # ── 0. STOP check ─────────────────────────────────────────────────────
-        if _contains_any(text, STOP_WORDS):
+        if _contains_stop(text):
             state.request_stop()
             bus.emit("FORCE_STOP", {}) 
             response = "Sir kya hua? Kuch aur search karna hai aapko? Main yahi hoon."
@@ -101,31 +89,54 @@ class Orchestrator:
                 ui.set_message(response, "#ffab40")
                 ui.set_subtitle("")
             bus.emit("SPEECH_REQUESTED", {"text": response, "ui_state": "SPEAKING"})
-            self.rm.speak(response, use_female=True)
+            self.rm.speak(response, use_female=False)
             state.clear_stop()
             if ui:
                 ui.set_state("IDLE")
                 ui.clear_message()
             return
 
-        # ── 0b. Wake check ────────────────────────────────────────────────────
-        if _is_wake_only(text):
-            response = "Sir main yahi hoon, aapke paas. Bas order dijiye mujhe kya karna hoga."
-            if ui: ui.set_message(response, "#00e5ff")
-            bus.emit("SPEECH_REQUESTED", {"text": response, "ui_state": "SPEAKING"})
-            self.rm.speak(response, use_female=True)
-            if ui: ui.set_state("IDLE")
+        # ── Wake check ────────────────────────────────────────────────────────
+        current_time_val = time.time()
+        is_in_followup = (current_time_val - state.last_activity_time) < FOLLOWUP_WINDOW
+        
+        has_wake = False
+        cleaned_text = text.strip().lower()
+        
+        # Explicit wake-word check
+        for phrase in WAKE_PHRASES:
+            if phrase in cleaned_text:
+                has_wake = True
+                if cleaned_text.startswith(phrase): cleaned_text = cleaned_text[len(phrase):].strip()
+                elif cleaned_text.endswith(phrase): cleaned_text = cleaned_text[:cleaned_text.rfind(phrase)].strip()
+                break
+        
+        if is_in_followup: has_wake = True
+            
+        if not has_wake:
+            if ui: 
+                ui.set_state("IDLE")
+                ui.set_subtitle("Listening for 'Jarvis'...")
             return
 
-        # Strip wake prefix
-        cleaned_text = text.strip().lower()
-        for phrase in WAKE_PHRASES + WAKE_EXACT:
-            if cleaned_text.startswith(phrase):
-                cleaned_text = cleaned_text[len(phrase):].strip()
-                break
+        state.last_activity_time = current_time_val
+
+        # ── Smart Repeat Check ────────────────────────────────────────────────
+        if is_in_followup and any(kw in cleaned_text for kw in REPEAT_KEYWORDS) and state.last_response:
+             if "jarvis" not in text.lower():
+                if ui: ui.set_subtitle("Repeating last response...")
+                self.rm.speak(state.last_response, use_female=state.last_response_use_female)
+                state.last_activity_time = time.time()
+                return
+
         if cleaned_text: text = cleaned_text
+        else:
+            response = "Sir main yahi hoon. Bas order dijiye."
+            self.rm.speak(response, use_female=False)
+            return
 
         state.clear_stop()
+
         if ui:
             ui.set_state("THINKING")
             ui.set_subtitle("Thinking...")
@@ -134,7 +145,9 @@ class Orchestrator:
         history = memory.get_history_string()
 
         # 2. Translate / Intent Detection
+        start_time = time.time()
         english_text = translate_to_english(text, "auto")
+        trans_time = time.time() - start_time
         
         # ── 2b. Intent Learning & Correction Loop ─────────────────────────────
         learned_intent = get_learned_intent(english_text)
@@ -147,18 +160,21 @@ class Orchestrator:
                 for known_intent in ["WEATHER", "OPEN_APP", "WELLNESS_TRACKING", "NOTEPAD_WRITE"]:
                      if known_intent.lower().replace("_", " ") in english_text:
                          save_learned_intent(state.last_query, known_intent)
-                         self.rm.speak(f"Sir, maine seekh liya hai. Agli baar se '{state.last_query}' bypass ho jayega.", use_female=True)
+                         self.rm.speak(f"Sir, maine seekh liya hai. Agli baar se '{state.last_query}' bypass ho jayega.", use_female=False)
                          return
 
+        intent_start = time.time()
         result = detect_intent(english_text)
         intent = learned_intent if learned_intent else result["intent"]
         entity = result["entity"]
+        detect_time = time.time() - intent_start
         
         # Save for learning next turn
         state.last_query = english_text
         state.last_intent = intent
         
         print(f"[Brain] Intent: {intent} (Learned: {bool(learned_intent)}) | Entity: {entity}")
+        print(f"[Profiling] Translation: {trans_time:.3f}s | Intent: {detect_time:.3f}s", flush=True)
 
         # ── 3. Local Intent Fast-Path ─────────────────────────────────────────
         response_text = None
@@ -188,6 +204,7 @@ class Orchestrator:
             # The agent can call a progress callback
             response_text = task_agent.execute_plan(english_text, callback=lambda msg: ui.set_subtitle(msg) if ui else None)
         elif intent in ["OPEN_APP", "SYSTEM_CONTROL", "CLOSE_WINDOW", "MEDIA_CONTROL"]:
+            if ui: ui.set_subtitle(f"Executing: {english_text}...")
             response_text = command_system.run(english_text)
         elif intent == "SMALL_TALK":
             # ── 0c. Daily Wellness Check-in ──────────────────────────────────────
@@ -197,7 +214,7 @@ class Orchestrator:
             if state.last_checkin_dt != today_str:
                 state.last_checkin_dt = today_str
                 checkin_msg = "Good morning sir! Aaj aapne apna wellness routine start kiya? Pani kitna piya hai abhi tak? Aur sir, kya aapne aaj exercise ki ya kal raat ki neend kaise rahi?"
-                self.rm.speak(checkin_msg, use_female=True)
+                self.rm.speak(checkin_msg, use_female=False)
             
             response_text = "Always a pleasure to help, sir."
             if "who are you" in text.lower() or "kaun ho" in text.lower():
@@ -208,15 +225,24 @@ class Orchestrator:
             response_text = get_answer(english_text, history=history)
         
         if not response_text and not state.is_stop_requested():
-            if ui: ui.set_subtitle("Searching...")
-            self.rm.speak("Thoda sabar kijiye sir, main laa rahi hoon...", use_female=True)
-            # Pass conversation history for pronoun resolution
-            response_text = get_answer(english_text, history=history)
+            if ui: ui.set_subtitle("Searching Memory...")
+            
+            brain_start = time.time()
+            # [Optimization] Pass original raw text to catch Hinglish nuances directly (Fills 'Ultra-Fast' requirement)
+            # This skips GoogleTrans delay for the Brain.
+            response_text = get_answer(text, history=history) 
+            brain_time = time.time() - brain_start
+            print(f"[Profiling] AI Brain (Flash Mode): {brain_time:.3f}s", flush=True)
 
         # ── 5. finalize and Save Turn ─────────────────────────────────────────
         if response_text and not state.is_stop_requested():
             # Save to memory for follow-up
             memory.add_turn(text, response_text)
+            
+            # Cache for Smart Repeat
+            state.last_response = response_text
+            state.last_response_use_female = False
+            state.last_activity_time = time.time()
             
             # Emit event first so UI shows text
             bus.emit("SPEECH_REQUESTED", {"text": response_text, "ui_state": "SPEAKING"})
@@ -237,7 +263,7 @@ class Orchestrator:
                 "Sir, thoda break lekar walk kar lijiye, it's good for health.",
                 "Sir, neend achhi lijiye aaj raat, recovery ke liye important hai."
             ])
-            self.rm.speak(reminder, use_female=True)
+            self.rm.speak(reminder, use_female=False)
             state.last_wellness_reminder_ts = now
 
         if ui: ui.set_state("IDLE")

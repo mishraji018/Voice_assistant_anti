@@ -9,6 +9,7 @@ import os
 import subprocess
 import ctypes
 import logging
+import webbrowser
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,18 @@ APP_COMMANDS = {
     "edge": "msedge.exe",
     "vs code": "code",
     "notepad": "notepad.exe",
-    "calculator": "calc.exe"
+    "calculator": "calc.exe",
+    "browser": "msedge.exe"
+}
+
+WEBSITES = {
+    "youtube": "https://www.youtube.com",
+    "google": "https://www.google.com",
+    "gmail": "https://mail.google.com",
+    "facebook": "https://www.facebook.com",
+    "instagram": "https://www.instagram.com",
+    "github": "https://github.com",
+    "whatsapp": "https://web.whatsapp.com"
 }
 
 def run(query: str) -> Optional[str]:
@@ -30,18 +42,43 @@ def run(query: str) -> Optional[str]:
     if q.startswith("open "):
         target = q.replace("open ", "").strip()
         
+        # 1.1 Local Apps
         for name, exe in APP_COMMANDS.items():
             if name in target:
                 try:
-                    # os.startfile is safer and uses system associations on Windows
                     os.startfile(exe) if name != "vs code" else subprocess.Popen(["code"], shell=False)
-                    return f"Opening {name.title()}."
+                    return f"Opening {name.title()} sir."
                 except Exception:
-                    return f"I couldn't launch {name}."
+                    pass
 
+        # 1.2 Websites
+        for name, url in WEBSITES.items():
+            if name in target:
+                try:
+                    webbrowser.open(url)
+                    return f"Opening {name.title()} for you sir."
+                except Exception:
+                    pass
+
+        # 1.3 Generic Folders
         if "folder" in target:
             folder_name = target.replace("folder", "").strip()
             return _open_folder(folder_name)
+
+        # 1.4 Fallback: Open in browser (Search or URL)
+        try:
+            # If it looks like a domain, open directly
+            if "." in target and " " not in target:
+                url = f"https://{target}" if not target.startswith("http") else target
+                webbrowser.open(url)
+                return f"Opening {target}."
+            else:
+                # Search Google
+                search_url = f"https://www.google.com/search?q={target}"
+                webbrowser.open(search_url)
+                return f"Searching for {target} on Google sir."
+        except Exception:
+            return f"I couldn't open {target}."
 
     # 2. System Power (Through brain -> main protocol)
     if "shutdown" in q: return "SYSTEM_ACTION:shutdown"

@@ -33,23 +33,11 @@ class JarvisApp:
 
     def __init__(self):
 
-        # Initialize DB
-        init_db()
-        # Initialize orchestrator after DB setup (it starts reminder threads)
-        from brain.orchestrator import orchestrator as _orchestrator
-        self.orchestrator = _orchestrator
-
         config.validate_config()
 
         self.running = True
         self.ui = None
-
-        # Route utility speech calls through orchestrator's voice manager.
-        set_response_manager(self.orchestrator.rm)
-
-        # Event subscriptions
-        bus.subscribe("SPEECH_REQUESTED", self.handle_speech)
-        bus.subscribe("SYSTEM_EXIT", self.shutdown)
+        self.orchestrator = None
 
     # =====================================================
     # Handle speech event
@@ -154,29 +142,53 @@ class JarvisApp:
     # Run Application
     # =====================================================
     def run(self):
-
         # Start background logger
         activity_logger.start_logger()
 
-        # Start voice thread
-        # Initialize UI FIRST
+        # Initialize UI FIRST so it shows up instantly
         self.ui = JarvisUI()
+        
+        # Start background initialization thread
+        def init_background():
+            if self.ui:
+                self.ui.set_state("INITIALIZING")
+                self.ui.set_subtitle("Starting J.A.R.V.I.S...")
+            
+            # Initialize DB
+            init_db()
+            
+            if self.ui: self.ui.set_subtitle("Connecting to Brain...")
+            # Initialize orchestrator 
+            from brain.orchestrator import orchestrator as _orchestrator
+            self.orchestrator = _orchestrator
+            
+            # Route utility speech calls through orchestrator's voice manager.
+            set_response_manager(self.orchestrator.rm)
+            
+            # Initialize Events
+            bus.subscribe("SPEECH_REQUESTED", self.handle_speech)
+            bus.subscribe("SYSTEM_EXIT", self.shutdown)
+            
+            if self.ui:
+                self.ui.set_subtitle("Online.")
+                self.ui.set_state("LISTENING")
+            
+            # Start voice thread after init is done
+            self.voice_thread = threading.Thread(
+                target=self.voice_loop,
+                name="VoiceLoop",
+                daemon=True
+            )
+            self.voice_thread.start()
+            
+            # Startup greeting
+            bus.emit("STARTUP_GREETING", {})
 
-        # Start voice thread
-        self.voice_thread = threading.Thread(
-            target=self.voice_loop,
-            name="VoiceLoop",
-            daemon=True
-        )
-
-        self.voice_thread.start()
+        threading.Thread(target=init_background, daemon=True).start()
 
         print("=" * 40)
         print("  JARVIS PRODUCTION SPINE : ONLINE")
         print("=" * 40)
-
-        # Startup greeting
-        bus.emit("STARTUP_GREETING", {})
 
         # Run UI (fallback to console mode if GUI is unavailable)
         try:

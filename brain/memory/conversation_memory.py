@@ -34,6 +34,15 @@ class ConversationMemory:
             history += f"User: {turn['query']}\nJarvis: {turn['response']}\n"
         return history
 
+    def get_gemini_history(self) -> List[Dict]:
+        """Format buffer as a list of parts for Gemini start_chat."""
+        self._check_inactivity()
+        history = []
+        for turn in self._buffer:
+            history.append({"role": "user", "parts": [turn["query"]]})
+            history.append({"role": "model", "parts": [turn["response"]]})
+        return history
+
     def _check_inactivity(self):
         """Reset buffer if quiet for more than inactivity_limit."""
         if time.time() - self._last_update > self._inactivity_limit:

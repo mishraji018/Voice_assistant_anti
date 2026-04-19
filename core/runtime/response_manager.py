@@ -14,9 +14,10 @@ except Exception:
 
 # ── Optional: neural voice engine (edge-tts + pygame) ─────────────────────
 try:
-    from voice_engine import SpeechEngine as _SpeechEngine
+    from core.audio.voice_engine import SpeechEngine as _SpeechEngine
     _NEURAL_AVAILABLE = True
-except Exception:
+except Exception as e:
+    print(f"[ResponseManager] Neural import failed: {e}")
     _NEURAL_AVAILABLE = False
 
 
@@ -46,88 +47,88 @@ def _init_pyttsx3_engine():
 # ---------------------------------------------------------------------------
 
 _PRE_ACTION: dict[str, list[str]] = {
-    "OPEN_APP"       : ["Opening {entity}…",
-                        "Launching {entity}, please wait…",
-                        "Starting {entity} for you…",
-                        "One moment — bringing up {entity}…"],
+    "OPEN_APP"       : ["Sir, {entity} khol raha hoon...",
+                        "Launching {entity}, please wait sir...",
+                        "Sir, ek second, {entity} start karta hoon...",
+                        "One moment sir — bringing up {entity}..."],
 
-    "CLOSE_WINDOW"   : ["Closing the window…",
-                        "Shutting it down…",
-                        "Closing that for you…"],
+    "CLOSE_WINDOW"   : ["Sir, window band kar raha hoon...",
+                        "Shutting it down, sir...",
+                        "Ji sir, close kar diya."],
 
-    "SEARCH_WEB"     : ["Searching for {entity} on the web…",
-                        "Looking up {entity}…",
-                        "Googling {entity} right now…"],
+    "SEARCH_WEB"     : ["Sir, {entity} search ho raha hai web par...",
+                        "{entity} ke baare mein info laa raha hoon...",
+                        "Googling {entity} right now, sir..."],
 
-    "SYSTEM_CONTROL" : ["Executing system command…",
-                        "Applying your system settings…",
-                        "Processing that request…"],
+    "SYSTEM_CONTROL" : ["Sir, system command run kar raha hoon...",
+                        "Sir, settings apply ho rahi hain...",
+                        "Processing that request, sir..."],
 
-    "MEDIA_CONTROL"  : ["Playing your media…",
-                        "Starting playback…",
-                        "Loading your content…"],
+    "MEDIA_CONTROL"  : ["Sir, media play kar raha hoon...",
+                        "Starting playback, sir...",
+                        "Loading your content..."],
 
-    "INFO_QUERY"     : ["Fetching the information…",
-                        "Let me check that…",
-                        "Looking that up for you…"],
+    "INFO_QUERY"     : ["Sir, info dhoond raha hoon...",
+                        "Let me check that, sir...",
+                        "Looking that up for you, sir..."],
 
-    "NOTE_TASK"      : ["Saving your note…",
-                        "Setting that reminder…",
-                        "Adding to your list…"],
+    "NOTE_TASK"      : ["Sir, note save kar raha hoon...",
+                        "Reminder set kar raha hoon sir...",
+                        "Adding to your list, sir..."],
 
-    "CALCULATOR"     : ["Calculating…",
-                        "Running the numbers…"],
+    "CALCULATOR"     : ["Calculating sir...",
+                        "Running the numbers..."],
 
-    "NEWS"           : ["Fetching the latest news…",
-                        "Loading your headlines…"],
+    "NEWS"           : ["Sir, latest news laa raha hoon...",
+                        "Loading your headlines, sir..."],
 
     "SMALL_TALK"     : [],   # no pre-action for small talk
 
-    "UNKNOWN"        : ["Processing your request…",
-                        "Let me try that…"],
+    "UNKNOWN"        : ["Ji sir, koshish karta hoon...",
+                        "Let me try that, sir..."],
 }
 
 _POST_ACTION: dict[str, list[str]] = {
-    "OPEN_APP"       : ["{entity} has been opened successfully.",
-                        "{entity} is now running.",
-                        "Done! {entity} is open and ready.",
-                        "I've launched {entity} for you."],
+    "OPEN_APP"       : ["Sir, {entity} open ho gaya hai.",
+                        "{entity} is now running, sir.",
+                        "Done! {entity} ready hai.",
+                        "I've launched {entity} for you, sir."],
 
-    "CLOSE_WINDOW"   : ["Window closed successfully.",
-                        "Done, it's all closed up.",
-                        "I've closed that for you."],
+    "CLOSE_WINDOW"   : ["Sir, window band kar di hai.",
+                        "Done sir, it's all closed up.",
+                        "I've closed that for you, sir."],
 
-    "SEARCH_WEB"     : ["Search results for {entity} are ready.",
-                        "I've opened the results for {entity}.",
-                        "Done! Take a look at the results."],
+    "SEARCH_WEB"     : ["Sir, {entity} ke search results ready hain.",
+                        "Results open kar diye hain sir.",
+                        "Done! Results dekh lijiye sir."],
 
-    "SYSTEM_CONTROL" : ["System command executed successfully.",
-                        "Done — your system has been updated.",
-                        "All set on the system side."],
+    "SYSTEM_CONTROL" : ["Sir, system command successfully execute ho gaya.",
+                        "Done sir — your system has been updated.",
+                        "All set on the system side, sir."],
 
-    "MEDIA_CONTROL"  : ["Media is now playing. Enjoy!",
-                        "Done! Hope you enjoy it.",
-                        "Playback started."],
+    "MEDIA_CONTROL"  : ["Media play ho raha hai sir. Enjoy!",
+                        "Done! Hope you enjoy it, sir.",
+                        "Playback started, sir."],
 
-    "INFO_QUERY"     : ["Hope that answers your question!",
-                        "There you go.",
-                        "That's what I found for you."],
+    "INFO_QUERY"     : ["Hope that answers your question, sir!",
+                        "There you go, sir.",
+                        "Sir, yeh info mili hai aapke liye."],
 
-    "NOTE_TASK"      : ["Got it — all saved.",
-                        "Reminder set successfully.",
-                        "Your task has been noted."],
+    "NOTE_TASK"      : ["All saved, sir!",
+                        "Sir, reminder set ho gaya hai.",
+                        "Your task has been noted, sir."],
 
-    "CALCULATOR"     : ["There's your result.",
-                        "Calculation complete!"],
+    "CALCULATOR"     : ["Sir, yeh hai result.",
+                        "Calculation complete, sir!"],
 
-    "NEWS"           : ["That's the latest news. Stay informed!",
-                        "Here are your top stories."],
+    "NEWS"           : ["Sir, yeh rahi latest news. Stay informed!",
+                        "Here are your top stories, sir."],
 
-    "SMALL_TALK"     : ["Always a pleasure chatting with you!",
-                        "Good to talk! How else can I help?"],
+    "SMALL_TALK"     : ["Sir, aapse baat karke hamesha achha lagta hai!",
+                        "Good to talk, sir! Kuch aur madad chahiye?"],
 
-    "UNKNOWN"        : ["I did my best with that.",
-                        "Let me know if you need anything else."],
+    "UNKNOWN"        : ["Sir, maine koshish ki hai.",
+                        "Let me know if you need anything else, sir."],
 }
 
 
