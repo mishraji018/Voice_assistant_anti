@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S — AI Voice Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --arc: #00d4ff;
+    --arc2: #0088cc;
+    --arc3: #00ffcc;
+    --danger: #ff4444;
+    --bg: #030810;
+    --bg2: #060d1a;
+    --bg3: #0a1628;
+    --text: #c8e8ff;
+    --muted: #4a7a9b;
+    --glow: 0 0 20px rgba(0,212,255,0.4);
+    --glow2: 0 0 40px rgba(0,212,255,0.2);
+  }
+ 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+  html { scroll-behavior: smooth; }
+ 
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+ 
+  /* ── Scanline overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.015) 2px, rgba(0,212,255,0.015) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+ 
+  /* ── Grid background ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 48px;
+    border-bottom: 1px solid rgba(0,212,255,0.15);
+    background: rgba(3,8,16,0.85);
+    backdrop-filter: blur(12px);
+  }
+ 
+  .nav-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--arc);
+    letter-spacing: 4px;
+    text-shadow: var(--glow);
+  }
+ 
+  .nav-links { display: flex; gap: 36px; }
+ 
+  .nav-links a {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+ 
+  .nav-links a:hover { color: var(--arc); text-shadow: var(--glow); }
+ 
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120px 48px 80px;
+    z-index: 1;
+    overflow: hidden;
+  }
+ 
+  /* Arc reactor glow bg */
+  .hero-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.08) 0%, rgba(0,136,204,0.04) 40%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: pulse-glow 4s ease-in-out infinite;
+  }
+ 
+  @keyframes pulse-glow {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+    50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  }
+ 
+  .hero-content {
+    position: relative;
+    text-align: center;
+    max-width: 900px;
+    animation: fade-up 1s ease both;
+  }
+ 
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+ 
+  .hero-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    color: var(--arc);
+    border: 1px solid rgba(0,212,255,0.3);
+    padding: 6px 20px;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+    animation: fade-up 1s 0.1s ease both;
+  }
+ 
+  .hero-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 8px;
+    color: #fff;
+    text-shadow: 0 0 60px rgba(0,212,255,0.5), 0 0 120px rgba(0,212,255,0.2);
+    margin-bottom: 8px;
+    animation: fade-up 1s 0.2s ease both;
+  }
+ 
+  .hero-subtitle-small {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    letter-spacing: 6px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    animation: fade-up 1s 0.3s ease both;
+  }
+ 
+  .hero-desc {
+    font-size: 18px;
+    font-weight: 300;
+    color: rgba(200,232,255,0.7);
+    line-height: 1.8;
+    max-width: 600px;
+    margin: 0 auto 48px;
+    animation: fade-up 1s 0.4s ease both;
+  }
+ 
+  .hero-btns {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fade-up 1s 0.5s ease both;
+  }
+ 
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--arc);
+    color: #000;
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 16px 36px;
+    text-decoration: none;
+    text-transform: uppercase;
+    clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+    transition: all 0.3s;
+    box-shadow: 0 0 30px rgba(0,212,255,0.5);
+  }
+ 
+  .btn-primary:hover {
+    background: #fff;
+    box-shadow: 0 0 60px rgba(0,212,255,0.8);
+    transform: translateY(-2px);
+  }
+ 
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: transparent;
+    color: var(--arc);
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 15px 36px;
+    text-decoration: none;
+    text-transform: uppercase;
+    border: 1px solid rgba(0,212,255,0.4);
+    clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+    transition: all 0.3s;
+  }
+ 
+  .btn-secondary:hover {
+    background: rgba(0,212,255,0.1);
+    border-color: var(--arc);
+    box-shadow: var(--glow);
+    transform: translateY(-2px);
+  }
+ 
+  /* Download icon svg */
+  .dl-icon { width: 18px; height: 18px; fill: currentColor; }
+ 
+  /* ── STATS BAR ── */
+  .stats-bar {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    border-top: 1px solid rgba(0,212,255,0.1);
+    border-bottom: 1px solid rgba(0,212,255,0.1);
+    background: rgba(6,13,26,0.8);
+    animation: fade-up 1s 0.6s ease both;
+  }
+ 
+  .stat {
+    flex: 1;
+    max-width: 220px;
+    padding: 28px 24px;
+    text-align: center;
+    border-right: 1px solid rgba(0,212,255,0.1);
+  }
+ 
+  .stat:last-child { border-right: none; }
+ 
+  .stat-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--arc);
+    text-shadow: var(--glow);
+    display: block;
+  }
+ 
+  .stat-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+    display: block;
+  }
+ 
+  /* ── SECTION COMMON ── */
+  section {
+    position: relative;
+    z-index: 1;
+    padding: 100px 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+ 
+  .section-header {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+ 
+  .section-tag {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--arc);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 16px;
+  }
+ 
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 4px;
+  }
+ 
+  /* ── FEATURES ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.1);
+  }
+ 
+  .feature-card {
+    background: var(--bg2);
+    padding: 40px 32px;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s;
+  }
+ 
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 0;
+    background: var(--arc);
+    transition: height 0.4s ease;
+  }
+ 
+  .feature-card:hover { background: var(--bg3); }
+  .feature-card:hover::before { height: 100%; }
+ 
+  .feature-icon {
+    width: 48px; height: 48px;
+    border: 1px solid rgba(0,212,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-size: 20px;
+  }
+ 
+  .feature-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--arc);
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+ 
+  .feature-desc {
+    font-size: 14px;
+    font-weight: 300;
+    color: rgba(200,232,255,0.6);
+    line-height: 1.7;
+  }
+ 
+  /* ── HOW IT WORKS ── */
+  .steps {
+    display: flex;
+    gap: 0;
+    position: relative;
+  }
+ 
+  .steps::before {
+    content: '';
+    position: absolute;
+    top: 32px; left: 32px; right: 32px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--arc), transparent);
+  }
+ 
+  .step {
+    flex: 1;
+    text-align: center;
+    padding: 0 24px;
+    position: relative;
+  }
+ 
+  .step-num {
+    width: 64px; height: 64px;
+    border: 1px solid rgba(0,212,255,0.4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--arc);
+    margin: 0 auto 24px;
+    background: var(--bg);
+    position: relative;
+    z-index: 1;
+    box-shadow: var(--glow);
+  }
+ 
+  .step-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+ 
+  .step-desc {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+ 
+  /* ── COMMANDS ── */
+  .commands-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+ 
+  .cmd-item {
+    background: var(--bg2);
+    border: 1px solid rgba(0,212,255,0.1);
+    padding: 16px 20px;
+    font-family: 'Rajdhani', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  .cmd-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--arc);
+    transform: scaleX(0);
+    transition: transform 0.3s;
+  }
+ 
+  .cmd-item:hover {
+    border-color: rgba(0,212,255,0.4);
+    color: var(--arc);
+    background: var(--bg3);
+  }
+ 
+  .cmd-item:hover::after { transform: scaleX(1); }
+ 
+  .cmd-prefix {
+    color: var(--arc3);
+    font-weight: 700;
+  }
+ 
+  /* ── DOWNLOAD SECTION ── */
+  .download-section {
+    position: relative;
+    z-index: 1;
+    background: var(--bg2);
+    border-top: 1px solid rgba(0,212,255,0.15);
+    border-bottom: 1px solid rgba(0,212,255,0.15);
+    padding: 100px 48px;
+    text-align: center;
+    overflow: hidden;
+  }
+ 
+  .download-section::before {
+    content: '';
+    position: absolute;
+    width: 800px; height: 800px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 60%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+ 
+  .download-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 6px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 40px rgba(0,212,255,0.4);
+  }
+ 
+  .download-sub {
+    font-size: 16px;
+    color: var(--muted);
+    margin-bottom: 48px;
+    letter-spacing: 1px;
+  }
+ 
+  .download-meta {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    margin-top: 32px;
+    flex-wrap: wrap;
+  }
+ 
+  .meta-item {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+ 
+  .meta-item span {
+    color: var(--arc);
+    font-weight: 600;
+  }
+ 
+  /* ── FOOTER ── */
+  footer {
+    position: relative;
+    z-index: 1;
+    padding: 40px 48px;
+    border-top: 1px solid rgba(0,212,255,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+ 
+  .footer-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--arc);
+    letter-spacing: 4px;
+  }
+ 
+  .footer-links { display: flex; gap: 24px; }
+ 
+  .footer-links a {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+ 
+  .footer-links a:hover { color: var(--arc); }
+ 
+  .footer-copy {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+ 
+  /* ── CORNER DECORATIONS ── */
+  .corner-deco {
+    position: absolute;
+    width: 24px; height: 24px;
+    border-color: rgba(0,212,255,0.4);
+    border-style: solid;
+  }
+ 
+  .corner-tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  .corner-tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+  .corner-bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+  .corner-br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+ 
+  /* ── ARC REACTOR ── */
+  .arc-reactor {
+    width: 120px; height: 120px;
+    margin: 0 auto 48px;
+    position: relative;
+    animation: spin-slow 20s linear infinite;
+  }
+ 
+  @keyframes spin-slow {
+    to { transform: rotate(360deg); }
+  }
+ 
+  .arc-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(0,212,255,0.3);
+  }
+ 
+  .arc-ring:nth-child(2) {
+    inset: 12px;
+    border-color: rgba(0,212,255,0.5);
+    animation: spin-slow 8s linear infinite reverse;
+  }
+ 
+  .arc-ring:nth-child(3) {
+    inset: 24px;
+    border-color: rgba(0,212,255,0.8);
+    animation: spin-slow 4s linear infinite;
+  }
+ 
+  .arc-core {
+    position: absolute;
+    inset: 36px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.9), rgba(0,136,204,0.6));
+    box-shadow: 0 0 30px rgba(0,212,255,0.8), 0 0 60px rgba(0,212,255,0.4);
+    animation: core-pulse 2s ease-in-out infinite;
+  }
+ 
+  @keyframes core-pulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(0,212,255,0.8), 0 0 40px rgba(0,212,255,0.4); }
+    50% { box-shadow: 0 0 40px rgba(0,212,255,1), 0 0 80px rgba(0,212,255,0.6); }
+  }
+ 
+  /* ── SYSTEM STATUS ── */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 24px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--arc3);
+    text-transform: uppercase;
+    animation: fade-up 1s 0.05s ease both;
+  }
+ 
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--arc3);
+    box-shadow: 0 0 8px var(--arc3);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+ 
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+ 
+  /* responsive */
+  @media (max-width: 768px) {
+    nav { padding: 16px 24px; }
+    .nav-links { display: none; }
+    section { padding: 60px 24px; }
+    .steps { flex-direction: column; gap: 40px; }
+    .steps::before { display: none; }
+    footer { flex-direction: column; gap: 16px; text-align: center; }
+    .download-section { padding: 60px 24px; }
+    .stats-bar { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+ 
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">J.A.R.V.I.S</div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#commands">Commands</a>
+    <a href="#download">Download</a>
+    <a href="https://github.com/mishraji018/Voice_assistant_anti" target="_blank">GitHub</a>
+  </div>
+</nav>
+ 
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-content">
+    <div class="status-bar">
+      <span class="status-dot"></span>
+      System online — all modules active
+    </div>
+    <div class="hero-tag">Just A Rather Very Intelligent System</div>
+    <h1 class="hero-title">J.A.R.V.I.S</h1>
+    <p class="hero-subtitle-small">Pro Edition v1.0</p>
+    <p class="hero-desc">
+      A Stark Industries–inspired AI voice assistant. Speak naturally, command intelligently. Built for Windows with neural TTS, Gemini AI brain, and a full HUD interface.
+    </p>
+    <div class="hero-btns">
+      <a href="https://github.com/mishraji018/Voice_assistant_anti/releases/latest/download/Jarvis_AI_Assistant.exe" class="btn-primary">
+        <svg class="dl-icon" viewBox="0 0 24 24"><path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/></svg>
+        Download EXE
+      </a>
+      <a href="https://github.com/mishraji018/Voice_assistant_anti" target="_blank" class="btn-secondary">
+        <svg class="dl-icon" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
+        View Source
+      </a>
+    </div>
+  </div>
+</div>
+ 
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-num">100+</span>
+    <span class="stat-label">Voice Commands</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">45ms</span>
+    <span class="stat-label">Response Time</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">v1.0</span>
+    <span class="stat-label">Current Build</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">Free</span>
+    <span class="stat-label">No Python Needed</span>
+  </div>
+</div>
+ 
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-header">
+    <span class="section-tag">Core Systems</span>
+    <h2 class="section-title">Capabilities</h2>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🎙</div>
+      <div class="feature-title">Neural Voice Recognition</div>
+      <p class="feature-desc">Understands Hindi, Hinglish and English. Multi-utterance buffering captures full commands without cutting off.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <div class="feature-title">Gemini AI Brain</div>
+      <p class="feature-desc">Powered by Google Gemini — answers questions, holds conversations, and learns your preferences over time.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔊</div>
+      <div class="feature-title">Neural TTS Voice</div>
+      <p class="feature-desc">Indian male voice using Edge TTS. Natural speech with adjustable pitch and speed — no robotic output.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💾</div>
+      <div class="feature-title">Persistent Memory</div>
+      <p class="feature-desc">Remembers your preferences and past conversations using a local SQLite database — no cloud required.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🖥</div>
+      <div class="feature-title">HUD Interface</div>
+      <p class="feature-desc">Jarvis-style visual interface with real-time state — Listening, Thinking, Speaking — just like the movies.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">System Control</div>
+      <p class="feature-desc">Open apps, search the web, control volume, set reminders, take notes — all with your voice.</p>
+    </div>
+  </div>
+</section>
+ 
+<!-- HOW IT WORKS -->
+<section>
+  <div class="section-header">
+    <span class="section-tag">Protocol</span>
+    <h2 class="section-title">How It Works</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-title">Download</div>
+      <p class="step-desc">Download the EXE file. No Python, no dependencies, no installation needed.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-title">Launch</div>
+      <p class="step-desc">Run Jarvis_AI_Assistant.exe. Allow microphone access when prompted.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-title">Speak</div>
+      <p class="step-desc">Say your command naturally. Jarvis listens, thinks, and responds instantly.</p>
+    </div>
+  </div>
+</section>
+ 
+<!-- COMMANDS -->
+<section id="commands">
+  <div class="section-header">
+    <span class="section-tag">Command Database</span>
+    <h2 class="section-title">Voice Commands</h2>
+  </div>
+  <div class="commands-grid">
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Open YouTube</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Search for Python tutorials</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> What's the time</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Set a reminder</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Take a note</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Play music</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> What's the weather</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Volume up / down</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Open VS Code</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Shutdown system</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Tell me a joke</div>
+    <div class="cmd-item"><span class="cmd-prefix">&gt;</span> Calculate 45 × 12</div>
+  </div>
+</section>
+ 
+<!-- DOWNLOAD -->
+<div class="download-section" id="download">
+  <div class="corner-deco corner-tl"></div>
+  <div class="corner-deco corner-tr"></div>
+  <div class="corner-deco corner-bl"></div>
+  <div class="corner-deco corner-br"></div>
+ 
+  <div class="arc-reactor">
+    <div class="arc-ring"></div>
+    <div class="arc-ring"></div>
+    <div class="arc-ring"></div>
+    <div class="arc-core"></div>
+  </div>
+ 
+  <h2 class="download-title">Initialize System</h2>
+  <p class="download-sub">Download Jarvis for Windows. Free. No Python required.</p>
+ 
+  <a href="https://github.com/mishraji018/Voice_assistant_anti/releases/latest/download/Jarvis_AI_Assistant.exe" class="btn-primary" style="font-size:15px; padding:20px 48px;">
+    <svg class="dl-icon" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 16l-5-5 1.4-1.4 2.6 2.6V4h2v8.2l2.6-2.6L17 11l-5 5zm-7 4v-2h14v2H5z"/></svg>
+    Download Jarvis v1.0
+  </a>
+ 
+  <div class="download-meta">
+    <div class="meta-item">Platform: <span>Windows 10/11</span></div>
+    <div class="meta-item">Size: <span>~45 MB</span></div>
+    <div class="meta-item">Version: <span>v1.0</span></div>
+    <div class="meta-item">License: <span>Free</span></div>
+  </div>
+</div>
+ 
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">J.A.R.V.I.S</div>
+  <div class="footer-links">
+    <a href="https://github.com/mishraji018/Voice_assistant_anti" target="_blank">GitHub</a>
+    <a href="https://github.com/mishraji018/Voice_assistant_anti/releases" target="_blank">Releases</a>
+    <a href="https://github.com/mishraji018/Voice_assistant_anti/issues" target="_blank">Report Bug</a>
+  </div>
+  <div class="footer-copy">Built by mishraji018</div>
+</footer>
+ 
+</body>
+</html>
