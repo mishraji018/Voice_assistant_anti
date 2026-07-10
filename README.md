@@ -19,6 +19,9 @@
 > - **Gemini Integration**: Now powered by Google Gemini for ultra-fast, intelligent reasoning.
 > - **Neural Voice Engine**: Switched to high-fidelity Edge-TTS for human-like natural speech.
 > - **Flash Logic**: Bypassed heavy translation delays for real-time "Flash" responses.
+> - **Local File Search**: Ultra-fast native `search-ms:` integration to find files on your computer.
+> - **Desktop Automation**: Confidence-gated mouse and keyboard control (with `FAILSAFE` killswitch).
+> - **Hardened Architecture**: Complete thread-safety for concurrent memory logs, prompt-injection defenses for web searches, and protected dangerous system commands.
 > - **Follow-up Window**: Implemented a 10-second active listening window for natural conversation flow.
 > - **Smart Repeat**: Instant playback functionality for repeating last responses.
 
@@ -41,6 +44,8 @@ Built with a focus on **latency optimization** and **architectural elegance**, i
 | 💾 **Long-Term Memory** | Remembers past interactions and learns from corrections. |
 | 🎙️ **Streaming TTS** | Starts speaking long paragraphs sentence-by-sentence to reduce latency. |
 | ⚙️ **System Control** | Manage apps, volume, brightness, and system states via voice. |
+| 🗂️ **Local File Search** | Instantly find and open any local files using native Windows search. |
+| 🖱️ **Desktop Automation**| Control mouse and keyboard (scroll, click, type) with your voice. |
 | 🏥 **Wellness Tracker** | Proactively reminds you to drink water, exercise, and take breaks. |
 | 📅 **Productivity** | Built-in task manager with daily routines and reminders. |
 
