@@ -8,12 +8,14 @@ from core.state.runtime_state import state
 
 try:
     import wikipedia
-except Exception:
+except Exception as e:
+    logger.warning(f"Wikipedia unavailable: {e}")
     wikipedia = None
 
 try:
     import ollama
-except Exception:
+except Exception as e:
+    logger.warning(f"Ollama unavailable: {e}")
     ollama = None
 
 import google.generativeai as genai
@@ -27,7 +29,7 @@ _OLLAMA_MAX_RETRIES = 2
 _OLLAMA_TIMEOUT = 30  # seconds
 
 # ── Gemini config ──────────────────────────────────────────────────────────────
-_GEMINI_MODEL = "gemini-1.5-flash"
+_GEMINI_MODEL = "gemini-2.5-flash"
 _GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if genai and _GEMINI_API_KEY:

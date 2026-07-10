@@ -45,6 +45,15 @@ INTENT_PATTERNS = {
         r"\b(?:search|google|find)\b\s+(?P<entity>.*)\s+\b(?:on browser|web search|online)\b",
         r"\b(?:browse|open browser and search)\b\s+(?P<entity>.*)"
     ],
+    "LOCAL_FILE_SEARCH": [
+        r"\b(?:where is|find|search for)\b\s+(?:the\s+)?(?P<entity>.*?)\s+(?:file|folder|document)\b",
+        r"\b(?:where is the file|find the file|search the file)\b\s+(?P<entity>.*)",
+        r"(?P<entity>.*)\s+(?:file kahan hai|file dhundo)"
+    ],
+    "DESKTOP_CONTROL": [
+        r"\b(?:click on|click|type|type out|copy|paste|press)\b\s+(?P<entity>.*)",
+        r"\b(?:scroll down|scroll up|open new tab|close tab|copy that)\b"
+    ],
     "TASK_CREATE": [
         r"\b(?:remind me to|add task|task add|remind me at)\b\s+(?P<entity>.*)",
         r"(?P<entity>.*)\s+\b(?:ka reminder lagao|yaad dilao)\b"

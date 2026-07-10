@@ -154,23 +154,28 @@ class WakeWordListener:
     def _bg_loop(self) -> None:
         """Daemon thread: listens and fires wake_event when phrase is heard."""
         while self._bg_running:
-            # ── FIX 2: Check active_since under the lock (matches _on_wake's write)
-            with self._timer_lock:
-                is_active = self._active_since is not None
-            if is_active:
-                time.sleep(0.1)   # back off cheaply while command session runs
-                continue
+            try:
+                # ── FIX 2: Check active_since under the lock (matches _on_wake's write)
+                with self._timer_lock:
+                    is_active = self._active_since is not None
+                if is_active:
+                    time.sleep(0.1)   # back off cheaply while command session runs
+                    continue
 
-            text = self._listen_once()
-            if text:
-                print(f"[WakeWord-BG] Heard: '{text}'")
-            if text and self._is_wake(text) and self._cooldown_ok():
-                # _on_wake() sets _active_since BEFORE we release the event,
-                # so the main thread sees the flag set as soon as it unblocks.
-                self._on_wake()
-                self._wake_event.set()   # unblock wait_for_wake()
-                # Stop the inner loop immediately — mic now belongs to main thread
-                break
+                text = self._listen_once()
+                if text:
+                    print(f"[WakeWord-BG] Heard: '{text}'")
+                if text and self._is_wake(text) and self._cooldown_ok():
+                    # _on_wake() sets _active_since BEFORE we release the event,
+                    # so the main thread sees the flag set as soon as it unblocks.
+                    self._on_wake()
+                    self._wake_event.set()   # unblock wait_for_wake()
+                    # Stop the inner loop immediately — mic now belongs to main thread
+                    break
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Wake word bg loop error: {e}")
+                time.sleep(1)
 
     # ── Active-session timer ──────────────────────────────────────────────────
 

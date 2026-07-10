@@ -20,9 +20,19 @@ Recognition language preference order
 import time
 import speech_recognition as sr
 
+import logging
+logger = logging.getLogger(__name__)
+
 # Stage-0 transliteration: Devanagari → Roman (NEW)
 try:
-    from brain.nlp.transliterator import transliterate_devanagari, has_devanagari, configure_recognizer
+    from brain.nlp.transliterator import transliterate_devanagari as _do_transliteration, has_devanagari, configure_recognizer
+    
+    def transliterate_devanagari(text: str) -> str:
+        try:
+            return _do_transliteration(text)
+        except Exception as e:
+            logger.warning(f"Transliteration failed: {e}")
+            return text
 except Exception:
     def transliterate_devanagari(text: str) -> str:
         return text

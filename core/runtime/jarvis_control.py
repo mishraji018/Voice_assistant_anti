@@ -197,7 +197,7 @@ class JarvisControl:
         Returns True if element was found and clicked.
         """
         try:
-            from jarvis_vision import vision
+            from jarvis_vision import vision  # type: ignore
             pos = vision.find_element(label)
             if pos is None:
                 pos = vision.find_element_fuzzy(label)

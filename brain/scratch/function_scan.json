@@ -1,0 +1,276 @@
+{
+    "main.py": [
+        "__init__",
+        "handle_speech",
+        "voice_loop",
+        "shutdown",
+        "run",
+        "init_background"
+    ],
+    "brain\\capabilities.py": [
+        "get_capability_response"
+    ],
+    "brain\\intents.py": [
+        "detect_intent"
+    ],
+    "brain\\learning.py": [
+        "save_correction",
+        "get_correction",
+        "_load_intent_learning_module",
+        "get_learned_intent",
+        "save_learned_intent"
+    ],
+    "brain\\orchestrator.py": [
+        "_contains_stop",
+        "__init__",
+        "startup_greeting",
+        "handle_speech_segment",
+        "process_query",
+        "handle_stop"
+    ],
+    "brain\\agent\\browser_agent.py": [
+        "__init__",
+        "search_and_summarize"
+    ],
+    "brain\\agent\\task_agent.py": [
+        "__init__",
+        "generate_plan",
+        "execute_plan"
+    ],
+    "brain\\health\\wellness_tracker.py": [
+        "update_wellness_metric",
+        "get_today_summary",
+        "generate_health_report",
+        "handle_wellness_query"
+    ],
+    "brain\\infra\\database.py": [
+        "_configure_database_backend",
+        "connect_db",
+        "init_db",
+        "log_activity",
+        "cleanup_old_activity"
+    ],
+    "brain\\infra\\event_bus.py": [
+        "__init__",
+        "subscribe",
+        "emit"
+    ],
+    "brain\\knowledge\\engine.py": [
+        "_is_name_query",
+        "_is_role_query",
+        "_looks_like_person_page",
+        "_extract_name_answer",
+        "_ollama_get_name",
+        "fetch_wiki_summary",
+        "generate_ai_response",
+        "_cached_wiki",
+        "_cached_ai",
+        "get_answer"
+    ],
+    "brain\\knowledge\\nutrition.py": [
+        "extract_entities",
+        "handle_nutrition_query"
+    ],
+    "brain\\knowledge\\weather.py": [
+        "get_weather",
+        "handle_weather_query"
+    ],
+    "brain\\learning\\intent_learning.py": [
+        "_configure_learning_backend",
+        "_connect_learning_db",
+        "init_learning_db",
+        "save_learned_intent",
+        "get_learned_intent"
+    ],
+    "brain\\memory\\conversation_memory.py": [
+        "__init__",
+        "add_turn",
+        "get_history_string",
+        "get_gemini_history",
+        "_check_inactivity",
+        "clear"
+    ],
+    "brain\\memory\\long_term_memory.py": [
+        "__init__",
+        "_init_patterns",
+        "process_query",
+        "save_fact",
+        "get_fact"
+    ],
+    "brain\\productivity\\task_manager.py": [
+        "__init__",
+        "_ensure_schema",
+        "start_reminder_checker",
+        "stop_reminder_checker",
+        "_reminder_loop",
+        "_check_and_alert",
+        "handle_query",
+        "add_task",
+        "get_all_tasks",
+        "clear_all_tasks"
+    ],
+    "brain\\scratch\\scanner.py": [
+        "get_functions_from_file",
+        "main"
+    ],
+    "brain\\vision\\screen_analyzer.py": [
+        "capture_screen",
+        "analyze_screen",
+        "get_screen_text"
+    ],
+    "commands\\system\\command_battery.py": [
+        "battery_status"
+    ],
+    "commands\\system\\command_bluetooth.py": [
+        "bluetooth_control"
+    ],
+    "commands\\system\\command_hardware.py": [
+        "wifi_control"
+    ],
+    "commands\\system\\command_screenshot.py": [
+        "take_screenshot"
+    ],
+    "commands\\system\\command_system.py": [
+        "run",
+        "_change_vol",
+        "_open_folder",
+        "write_to_notepad",
+        "execute_pc_action"
+    ],
+    "core\\audio\\speech_input.py": [
+        "_is_hindi_unicode",
+        "listen_once",
+        "listen_with_buffer",
+        "listen",
+        "transliterate_devanagari",
+        "has_devanagari",
+        "configure_recognizer"
+    ],
+    "core\\audio\\voice_control.py": [
+        "take_command"
+    ],
+    "core\\audio\\voice_engine.py": [
+        "_play_audio",
+        "_speak_elevenlabs",
+        "_speak_edge_async",
+        "_speak_sync",
+        "__init__",
+        "_speech_worker",
+        "speak",
+        "wait_until_done",
+        "is_speaking",
+        "shutdown"
+    ],
+    "core\\audio\\voice_utils.py": [
+        "set_response_manager",
+        "speak"
+    ],
+    "core\\config\\config.py": [
+        "validate_config"
+    ],
+    "core\\infra\\connectivity_checker.py": [
+        "is_online",
+        "require_internet",
+        "needs_internet",
+        "connectivity_status"
+    ],
+    "core\\infra\\paths.py": [
+        "get_config_path",
+        "get_log_path"
+    ],
+    "core\\infra\\translator.py": [
+        "_dict_translate",
+        "_deep_translate",
+        "translate_to_english"
+    ],
+    "core\\infra\\watchdog_launcher.py": [
+        "_launch",
+        "_log_crash",
+        "main"
+    ],
+    "core\\monitor\\activity_logger.py": [
+        "start_logger",
+        "__init__",
+        "run"
+    ],
+    "core\\runtime\\jarvis_control.py": [
+        "__init__",
+        "_check",
+        "move_to",
+        "click",
+        "double_click",
+        "right_click",
+        "type_text",
+        "press_key",
+        "scroll_down",
+        "scroll_up",
+        "type_in_search",
+        "click_element",
+        "select_all_and_copy",
+        "open_new_tab",
+        "close_tab",
+        "go_to_url"
+    ],
+    "core\\runtime\\response_manager.py": [
+        "_prepare_windows_tts_cache",
+        "_init_pyttsx3_engine",
+        "_pick",
+        "__init__",
+        "_speech_worker",
+        "_clear_queue",
+        "_enqueue",
+        "pre_action",
+        "post_action",
+        "speak",
+        "speak_streaming",
+        "wait_until_done",
+        "is_speaking",
+        "shutdown"
+    ],
+    "core\\runtime\\task_automation.py": [
+        "system_control",
+        "do_task"
+    ],
+    "core\\state\\runtime_state.py": [
+        "__init__",
+        "request_stop",
+        "clear_stop",
+        "is_stop_requested",
+        "update_action"
+    ],
+    "core\\wake\\threaded_wake_loop.py": [
+        "_listen_for_command",
+        "__init__",
+        "stop",
+        "run",
+        "_listen_once",
+        "_is_wake"
+    ],
+    "core\\wake\\wake_word_listener.py": [
+        "__init__",
+        "_listen_once",
+        "_is_wake",
+        "_cooldown_ok",
+        "_ui_set_state",
+        "_on_wake",
+        "wait_for_wake",
+        "start_background",
+        "_bg_loop",
+        "start_active_timer",
+        "beat",
+        "is_timed_out",
+        "go_idle"
+    ],
+    "ui\\visual_ui.py": [
+        "__init__",
+        "set_state",
+        "set_subtitle",
+        "set_message",
+        "clear_message",
+        "clear_subtitle",
+        "set_audio_level",
+        "destroy",
+        "run",
+        "_animate"
+    ]
+}

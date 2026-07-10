@@ -3,19 +3,23 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 
+import threading
+
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "jarvis_memory.db")
 DB_URI = DB_PATH
 DB_CONNECT_KWARGS = {}
 _MEMORY_KEEPALIVE = None
+_db_lock = threading.Lock()
 
 
 def _configure_database_backend():
     global DB_URI, DB_CONNECT_KWARGS, _MEMORY_KEEPALIVE
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         conn.execute("CREATE TABLE IF NOT EXISTS __db_probe (id INTEGER)")
         conn.commit()
         conn.close()
+        DB_CONNECT_KWARGS = {"check_same_thread": False}
     except sqlite3.Error:
         DB_URI = "file:jarvis_memory_shared?mode=memory&cache=shared"
         DB_CONNECT_KWARGS = {"uri": True, "check_same_thread": False}
@@ -96,14 +100,15 @@ def log_activity(action_type: str, target_name: str, target_path: str = ""):
     ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
     
     # 1. Save to SQLite
-    conn = connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO activity_log (action_type, target_name, target_path, timestamp) VALUES (?, ?, ?, ?)",
-        (action_type, target_name, target_path, ts_str)
-    )
-    conn.commit()
-    conn.close()
+    with _db_lock:
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO activity_log (action_type, target_name, target_path, timestamp) VALUES (?, ?, ?, ?)",
+            (action_type, target_name, target_path, ts_str)
+        )
+        conn.commit()
+        conn.close()
 
     # 2. Save to logs/jarvis.txt (Simplified for user reading)
     txt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs", "jarvis.txt")
@@ -115,11 +120,12 @@ def cleanup_old_activity():
     """Remove logs older than 24 hours."""
     cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     
-    conn = connect_db()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM activity_log WHERE timestamp < ?", (cutoff,))
-    conn.commit()
-    conn.close()
+    with _db_lock:
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM activity_log WHERE timestamp < ?", (cutoff,))
+        conn.commit()
+        conn.close()
     
     # Note: Full jarvis.txt cleanup would require rewriting the file, 
     # usually done on startup or periodically.

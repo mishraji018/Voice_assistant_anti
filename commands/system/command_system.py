@@ -10,9 +10,14 @@ import subprocess
 import ctypes
 import logging
 import webbrowser
+import time
+import tempfile
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+DANGEROUS_ACTIONS = {"shutdown", "restart", "sleep", "logoff"}
+_pending = {"action": None, "ts": 0}
 
 # Predefined standard apps
 APP_COMMANDS = {
@@ -81,8 +86,16 @@ def run(query: str) -> Optional[str]:
             return f"I couldn't open {target}."
 
     # 2. System Power (Through brain -> main protocol)
-    if "shutdown" in q: return "SYSTEM_ACTION:shutdown"
-    if "restart" in q: return "SYSTEM_ACTION:restart"
+    if _pending["action"]:
+        if "yes" in q or "haan" in q or "confirm" in q:
+            action = _pending["action"]
+            _pending["action"] = None
+            return execute_pc_action(action, confirmed=True)
+        else:
+            _pending["action"] = None
+
+    if "shutdown" in q: return execute_pc_action("shutdown")
+    if "restart" in q: return execute_pc_action("restart")
 
     if "lock" in q and "pc" in q:
         ctypes.windll.user32.LockWorkStation()
@@ -114,45 +127,87 @@ def _open_folder(name: str) -> str:
             return f"Opening {d}."
     return "Folder not found."
 
-def write_to_notepad(content: str) -> str:
-    """Type content into Notepad using pyautogui."""
-    import time
+def search_file(query: str) -> str:
+    """Uses Windows search-ms protocol to open file explorer with search results."""
+    if not query:
+        return "Kaunsi file dhundni hai sir?"
+    
     try:
-        import pyautogui
-        import pygetwindow as gw
-    except Exception:
-        return "Sir, notepad typing ke liye pyautogui aur pygetwindow install hone chahiye."
+        user_home = os.path.expanduser("~")
+        search_url = f"search-ms:query={query}&crumb=location:{user_home}"
+        os.startfile(search_url)
+        return f"Sir, maine aapke liye '{query}' search kar di hai. File explorer me results check karein."
+    except Exception as e:
+        logger.error(f"File search failed: {e}")
+        return "Sir, file search open karne mein kuch error aa rahi hai."
 
+def handle_desktop_control(text: str, entity: str) -> str:
+    """Parse string command to jarvis_control actions."""
+    from core.runtime.jarvis_control import ctrl
+    
+    text_lower = text.lower()
+    
+    if "scroll down" in text_lower:
+        ctrl.scroll_down(3)
+        return "Scrolling down sir."
+    elif "scroll up" in text_lower:
+        ctrl.scroll_up(3)
+        return "Scrolling up sir."
+    elif "click" in text_lower:
+        if entity:
+            ctrl.click_element(entity)
+            return f"Clicking on {entity}."
+        return "Kahan click karu sir?"
+    elif "type" in text_lower:
+        if entity:
+            ctrl.type_text(entity)
+            return f"Typing {entity}."
+        return "Kya type karu sir?"
+    elif "new tab" in text_lower:
+        ctrl.open_new_tab()
+        return "Opening new tab."
+    elif "close tab" in text_lower:
+        ctrl.close_tab()
+        return "Closing tab."
+    elif "copy" in text_lower:
+        ctrl.select_all_and_copy()
+        return "Copied to clipboard."
+    elif "press" in text_lower:
+        ctrl.press_key(entity)
+        return f"Pressing {entity}."
+    
+    return "Sir, main ye desktop action nahi samajh paya."
+
+def write_to_notepad(content: str) -> str:
+    """Safely write content to Notepad using a temp file."""
     if not content:
         return "Sir, kya likhna hai notepad mein? Aapne kuch bataya nahi."
 
-    # 1. Ensure Notepad is open
-    notepads = gw.getWindowsWithTitle('Notepad')
-    if not notepads:
-        os.startfile("notepad.exe")
-        time.sleep(1.5) # Wait for launch
-        notepads = gw.getWindowsWithTitle('Notepad')
-    
-    if notepads:
-        try:
-            # 2. Focus window
-            win = notepads[0]
-            if win.isMinimized: win.restore()
-            win.activate()
-            time.sleep(0.5)
-            
-            # 3. Type content
-            pyautogui.write(content, interval=0.01)
-            return f"Sir, maine notepad mein '{content[:20]}...' likh diya hai."
-        except Exception as e:
-            logger.error(f"Notepad write error: {e}")
-            return "Sir, notepad mein likhne mein kuch dikkat aa rahi hai."
-    
-    return "Sir, main notepad open nahi kar pa rahi hoon."
+    try:
+        path = os.path.join(tempfile.gettempdir(), "jarvis_note.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.startfile(path)
+        return f"Sir, maine notepad mein '{content[:20]}...' likh diya hai."
+    except Exception as e:
+        logger.error(f"Notepad write error: {e}")
+        return "Sir, notepad open karne mein kuch dikkat aa rahi hai."
 
-def execute_pc_action(action: str):
-    """External trigger for shutdown/restart."""
+def execute_pc_action(action: str, confirmed: bool = False):
+    """External trigger for shutdown/restart with confirmation."""
+    if action in DANGEROUS_ACTIONS and not confirmed:
+        _pending["action"] = action
+        _pending["ts"] = time.time()
+        return f"Confirm karo — {action} karna hai? 10 second me 'haan confirm' bolo."
+
+    if action in DANGEROUS_ACTIONS and time.time() - _pending["ts"] > 10:
+        return "Timeout, cancel kar diya."
+
+    logger.info(f"Executing PC action: {action}")
     if action == "shutdown":
         subprocess.run(["shutdown", "/s", "/t", "1"], shell=False)
+        return "Shutting down the PC sir."
     elif action == "restart":
         subprocess.run(["shutdown", "/r", "/t", "1"], shell=False)
+        return "Restarting the PC sir."
+    return None

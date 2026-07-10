@@ -203,6 +203,15 @@ class Orchestrator:
             if ui: ui.set_subtitle("Thinking (Agent)...")
             # The agent can call a progress callback
             response_text = task_agent.execute_plan(english_text, callback=lambda msg: ui.set_subtitle(msg) if ui else None)
+        elif intent == "LOCAL_FILE_SEARCH":
+            if ui: ui.set_subtitle(f"Searching for file: {entity}...")
+            response_text = command_system.search_file(entity)
+        elif intent == "DESKTOP_CONTROL":
+            if result["confidence"] < 0.85:
+                response_text = "Sir, I wasn't confident enough to perform that desktop action."
+            else:
+                if ui: ui.set_subtitle(f"Desktop control: {english_text}...")
+                response_text = command_system.handle_desktop_control(english_text, entity)
         elif intent in ["OPEN_APP", "SYSTEM_CONTROL", "CLOSE_WINDOW", "MEDIA_CONTROL"]:
             if ui: ui.set_subtitle(f"Executing: {english_text}...")
             response_text = command_system.run(english_text)
