@@ -104,17 +104,86 @@ INTENT_PATTERNS = {
     ]
 }
 
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+def _llm_fallback_intent(text: str) -> Dict[str, Any]:
+    """Uses LLM to categorize intent if Regex fails, returning JSON."""
+    try:
+        from brain.knowledge.engine import groq_client, GROQ_MODEL_CHAIN, _OLLAMA_MODEL
+        import ollama
+    except Exception:
+        return None
+
+    valid_intents = list(INTENT_PATTERNS.keys())
+    system_prompt = f"""
+    You are an intent classification engine.
+    Categorize the user's input into exactly one of these intents:
+    {valid_intents}
+    If none match, use 'UNKNOWN'.
+    Return a JSON object with 'intent' and 'entity'.
+    For example, if input is "what is the weather outside", return {{"intent": "WEATHER", "entity": "outside"}}.
+    """
+    
+    try:
+        if groq_client:
+            messages = [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': text}
+            ]
+            for model in GROQ_MODEL_CHAIN:
+                try:
+                    response = groq_client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        temperature=0.0,
+                        max_tokens=100,
+                        response_format={"type": "json_object"}
+                    )
+                    data = json.loads(response.choices[0].message.content.strip())
+                    intent = data.get("intent", "UNKNOWN")
+                    if intent not in valid_intents: intent = "UNKNOWN"
+                    return {
+                        "intent": intent,
+                        "entity": data.get("entity", ""),
+                        "confidence": 0.7,
+                        "original": text
+                    }
+                except Exception:
+                    continue
+
+        if ollama is not None:
+            response = ollama.chat(model=_OLLAMA_MODEL, messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': text},
+            ], format='json')
+            data = json.loads(response.get('message', {}).get('content', '').strip())
+            intent = data.get("intent", "UNKNOWN")
+            if intent not in valid_intents: intent = "UNKNOWN"
+            return {
+                "intent": intent,
+                "entity": data.get("entity", ""),
+                "confidence": 0.7,
+                "original": text
+            }
+    except Exception as e:
+        logger.error(f"Intent Fallback error: {e}")
+        
+    return None
+
 def detect_intent(text: str) -> Dict[str, Any]:
     """
     Detect structured intent and entities from user input.
     """
-    text = text.lower().strip()
+    text_lower = text.lower().strip()
     
     for intent, patterns in INTENT_PATTERNS.items():
         for pattern in patterns:
             # We use word boundaries \b to avoid partial matches (e.g. 'eat' in 'weather')
             # If the pattern already has \b, re.search handles it.
-            match = re.search(pattern, text)
+            match = re.search(pattern, text_lower)
             if match:
                 entity = match.groupdict().get("entity", "").strip()
                 # Clean up entity from question marks etc
@@ -127,6 +196,11 @@ def detect_intent(text: str) -> Dict[str, Any]:
                     "original": text
                 }
     
+    # ── LLM Fallback if Regex fails ──
+    fallback = _llm_fallback_intent(text)
+    if fallback and fallback["intent"] != "UNKNOWN":
+        return fallback
+
     return {
         "intent": "UNKNOWN",
         "entity": "",

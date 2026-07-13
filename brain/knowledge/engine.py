@@ -18,8 +18,13 @@ except Exception as e:
     logger.warning(f"Ollama unavailable: {e}")
     ollama = None
 
-import google.generativeai as genai
 from brain.memory.conversation_memory import memory
+
+try:
+    from groq import Groq, RateLimitError
+except Exception as e:
+    logger.warning(f"Groq unavailable: {e}")
+    Groq = None
 
 logger = logging.getLogger(__name__)
 
@@ -28,19 +33,24 @@ _OLLAMA_MODEL = "llama3"
 _OLLAMA_MAX_RETRIES = 2
 _OLLAMA_TIMEOUT = 30  # seconds
 
-# ── Gemini config ──────────────────────────────────────────────────────────────
-_GEMINI_MODEL = "gemini-2.5-flash"
-_GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+from core.config.config import config
 
-if genai and _GEMINI_API_KEY:
+# ── Groq config ──────────────────────────────────────────────────────────────
+GROQ_API_KEY = config.get("ai_models", "groq_api_key")
+if Groq and GROQ_API_KEY:
     try:
-        genai.configure(api_key=_GEMINI_API_KEY)
+        groq_client = Groq(api_key=GROQ_API_KEY)
     except Exception as e:
-        logger.error(f"[Gemini] Config error: {e}")
-        genai = None
+        logger.error(f"[Groq] Config error: {e}")
+        groq_client = None
+else:
+    groq_client = None
+
+GROQ_MODEL_CHAIN = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
 
 # ── Advanced System Instruction ──────────────────────────────────────────────
-_JARVIS_SYSTEM_INSTRUCTION = """You are J.A.R.V.I.S., the highly sophisticated, witty, and loyal AI assistant to 'Sir'. Think of yourself as the legendary assistant from Iron Man.
+PROMPT_VERSION = "v1.2_jarvis"
+_JARVIS_SYSTEM_INSTRUCTION = f"""You are J.A.R.V.I.S., the highly sophisticated, witty, and loyal AI assistant to 'Sir'. Think of yourself as the legendary assistant from Iron Man. [Version: {PROMPT_VERSION}]
 
 STRICT OPERATING PROTOCOLS:
 1. LANGUAGE (HINGLISH): Speak in a natural, seamless blend of Hindi and English (Roman script only). 
@@ -244,28 +254,42 @@ def generate_ai_response(query: str, context: str = "", history: str = "") -> st
     Falls back to Ollama (Local) if Gemini fails or is unconfigured.
     """
     import datetime
+    import time
+    
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    start_time = time.time()
 
-    # 1. Try Gemini
-    if genai and _GEMINI_API_KEY:
-        try:
-            # Reusable model instance
-            model = genai.GenerativeModel(
-                model_name=_GEMINI_MODEL,
-                system_instruction=_JARVIS_SYSTEM_INSTRUCTION
-            )
+    # 1. Try Groq (TokenMix Fallback)
+    if groq_client:
+        messages = [{"role": "system", "content": _JARVIS_SYSTEM_INSTRUCTION}]
+        
+        # Add conversation history
+        for turn in memory._buffer:
+            messages.append({"role": "user", "content": turn["query"]})
+            messages.append({"role": "assistant", "content": turn["response"]})
             
-            # Start Chat Session with history
-            chat = model.start_chat(history=memory.get_gemini_history())
-            
-            # Instant Prompt: raw query + vital context
-            full_query = f"[Time: {current_time} | Memory: {context or 'None'}]\n{query}"
-            
-            response = chat.send_message(full_query)
-            if response and response.text:
-                return response.text.strip()
-        except Exception as e:
-            logger.error(f"[Gemini Pro] Engine error: {e}. Falling back.")
+        # Instant Prompt: raw query + vital context
+        full_query = f"[Time: {current_time} | Memory: {context or 'None'}]\n{query}"
+        messages.append({"role": "user", "content": full_query})
+        
+        for model in GROQ_MODEL_CHAIN:
+            try:
+                response = groq_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=500,
+                )
+                if response.choices and response.choices[0].message.content:
+                    latency = time.time() - start_time
+                    logger.info(f"[Metrics] Groq ({model}) latency: {latency:.2f}s")
+                    return response.choices[0].message.content.strip()
+            except RateLimitError:
+                logger.warning(f"{model} rate-limited, trying next tier")
+                continue
+            except Exception as e:
+                logger.error(f"[{model}] Engine error: {e}. Falling back.")
+                continue
 
     # 2. Fallback to Ollama
     if ollama:
@@ -278,6 +302,9 @@ def generate_ai_response(query: str, context: str = "", history: str = "") -> st
         
         try:
             response = ollama.chat(model=_OLLAMA_MODEL, messages=[{'role': 'user', 'content': prompt}])
+            latency = time.time() - start_time
+            logger.info(f"[Metrics] Ollama ({_OLLAMA_MODEL}) latency: {latency:.2f}s")
+            
             if hasattr(response, "message"):
                 return response.message.content.strip()
             return response.get('message', {}).get('content', '').strip()
@@ -307,7 +334,7 @@ def _cached_ai(query: str, context: str, history: str) -> str:
 def get_answer(query: str, history: str = "") -> str:
     """
     JARVIS Pro Knowledge Flow:
-    1. Direct Gemini Brain: High-speed, high-quality, contextual logic.
+    1. Direct Groq Brain: High-speed, high-quality, contextual logic.
     2. Wikipedia: Used only for extremely obscure facts if AI doesn't know.
     3. Ollama: Local fallback for offline mode.
     """
@@ -316,15 +343,15 @@ def get_answer(query: str, history: str = "") -> str:
 
     is_name_q = _is_name_query(query)
     
-    # Check if we have an API key — if yes, go Gemini first
-    _key = os.getenv("GEMINI_API_KEY")
-    if _key and "your_gemini_api_key_here" not in _key:
-        # Conversationally process via Gemini
-        # We don't wait for Wiki here to keep it snappy. Gemini 1.5 is smart enough.
+    # Check if we have an API key — if yes, go Groq first
+    _key = config.get("ai_models", "groq_api_key")
+    if _key and "your_groq_api_key_here" not in _key and "gsk_xxxxxxxxxxxx" not in _key:
+        # Conversationally process via Groq
+        # We don't wait for Wiki here to keep it snappy. Groq is smart enough.
         return generate_ai_response(query, context="", history=history)
 
     # ── Legacy/Offline Fallback Flow ──────────────────────────────────────────
-    # If no Gemini Key, we fallback to the complex Wiki + Ollama logic
+    # If no Groq Key, we fallback to the complex Wiki + Ollama logic
     wiki_result = fetch_wiki_summary(query)
     if is_name_q and wiki_result:
         return f"Sir, {_extract_name_answer(query, wiki_result)}."

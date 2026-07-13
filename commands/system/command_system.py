@@ -120,12 +120,23 @@ def _change_vol(vkey: int):
 
 def _open_folder(name: str) -> str:
     path = os.path.expanduser("~")
-    dirs = ["Desktop", "Documents", "Downloads", "Pictures"]
+    dirs = ["Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos"]
+    
+    # Strict matching instead of substring `in d.lower()`
+    matched_dir = None
     for d in dirs:
-        if name.lower() in d.lower():
-            os.startfile(os.path.join(path, d))
-            return f"Opening {d}."
-    return "Folder not found."
+        if name.lower().strip() == d.lower():
+            matched_dir = d
+            break
+            
+    if matched_dir:
+        target_path = os.path.abspath(os.path.join(path, matched_dir))
+        # Ensure it doesn't escape the user profile
+        if target_path.startswith(os.path.abspath(path)):
+            os.startfile(target_path)
+            return f"Opening {matched_dir}."
+            
+    return "Folder not found or access denied."
 
 def search_file(query: str) -> str:
     """Uses Windows search-ms protocol to open file explorer with search results."""

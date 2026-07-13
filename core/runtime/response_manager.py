@@ -219,13 +219,6 @@ class ResponseManager:
     def _speech_worker(self) -> None:
         if not self._tts_enabled:
             return
-        try:
-            engine = _init_pyttsx3_engine()
-            engine.setProperty('rate',   self._rate)
-            engine.setProperty('volume', self._volume)
-        except Exception as exc:
-            print(f"[TTS] Engine init failed: {exc}")
-            return
 
         while True:
             try:
@@ -250,13 +243,43 @@ class ResponseManager:
 
                 try:
                     vid = self._voices[voice_idx].id
-                    engine.setProperty('voice', vid)
                 except IndexError:
-                    pass
+                    vid = ""
                 
                 print(f"[Voice] {text}")
-                engine.say(text)
-                engine.runAndWait()
+                
+                # --- PROCESS ISOLATION ---
+                # SAPI5 occasionally hangs indefinitely on Windows. 
+                # We spawn it in a subprocess so we can enforce a 15-second timeout.
+                import sys
+                import subprocess
+                
+                script = f'''
+import sys
+try:
+    import pyttsx3
+    engine = pyttsx3.init()
+    engine.setProperty("rate", {self._rate})
+    engine.setProperty("volume", {self._volume})
+    if r"{vid}":
+        engine.setProperty("voice", r"{vid}")
+    engine.say(sys.argv[1])
+    engine.runAndWait()
+except Exception as e:
+    sys.exit(1)
+'''
+                try:
+                    # Capture output to avoid dumping to console unless debugging
+                    subprocess.run(
+                        [sys.executable, "-c", script, text],
+                        timeout=15, 
+                        check=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                except subprocess.TimeoutExpired:
+                    print("[TTS] SAPI5 engine hung and was terminated automatically.")
+                # --- END ISOLATION ---
 
             except Exception as exc:
                 print(f"[TTS] Speech error (ignored): {exc}")

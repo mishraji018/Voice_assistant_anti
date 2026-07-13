@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # ============================================
 # 1. Load Environment FIRST
 # ============================================
-env_path = os.path.join(os.path.dirname(__file__), "ni.env")
+env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path)
 
 # ============================================
@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Imports
 # ============================================
 from brain.infra.event_bus import bus
-from core.config import config
+from core.config.config import config
 from core.monitor import activity_logger
 from core.audio.voice_control import take_command
 from core.audio.voice_utils import set_response_manager
@@ -33,7 +33,15 @@ class JarvisApp:
 
     def __init__(self):
 
-        config.validate_config()
+        # Ensure we have essential config before starting
+        from core.config.config import config
+        if not config.is_valid():
+            print("[System] Configuration missing or invalid. Launching Setup Wizard...")
+            from ui.settings_ui import launch_setup_wizard
+            success = launch_setup_wizard()
+            if not success or not config.is_valid():
+                print("[System] Setup aborted or still invalid. Exiting.")
+                sys.exit(1)
 
         self.running = True
         self.ui = None
@@ -70,7 +78,7 @@ class JarvisApp:
             self.ui.set_state("LISTENING")
 
     # =====================================================
-    # Voice Loop
+    # Voice Loop (Milestone 2A Streaming)
     # =====================================================
     def voice_loop(self):
 
@@ -78,49 +86,59 @@ class JarvisApp:
         while self.ui is None and self.running:
             time.sleep(0.1)
 
-        print("[Voice] JARVIS Listening...")
+        print("[Voice] JARVIS Streaming Pipeline Initialized...")
+        
+        from core.pipeline.manager import PipelineManager
+        from core.audio.stt_deepgram import DeepgramSTTProvider
+        from core.pipeline.events import PipelineEvents
+        
+        stt_provider = DeepgramSTTProvider()
+        pipeline = PipelineManager(stt_provider=stt_provider)
+        
+        def on_stt_started(data):
+            if self.ui:
+                self.ui.set_state("LISTENING")
+                self.ui.set_subtitle("Listening...")
+                
+        def on_stt_finished(data):
+            if self.ui:
+                self.ui.set_state("IDLE")
+                
+        def on_transcript_updated(packet):
+            if self.ui:
+                # Show live words
+                self.ui.set_subtitle(f"{packet.data}")
+                
+        def on_transcript_final(packet):
+            if self.ui:
+                self.ui.set_subtitle(f'Captured: "{packet.data}"')
+                self.ui.set_message(f"You: {packet.data}", "#a0b0d0")
+                self.ui.set_state("THINKING")
+            
+            # For now, we manually restart listening for testing Milestone 2A loop
+            time.sleep(1)
+            pipeline.start_listening()
+            
+        def on_error(packet):
+            print(f"[Pipeline Error] {packet.data if hasattr(packet, 'data') else packet}")
+            if self.ui:
+                self.ui.set_state("ERROR")
+                self.ui.set_subtitle("Speech error")
+            time.sleep(2)
+            pipeline.start_listening()
+
+        # Subscribe to new Pipeline Events
+        bus.subscribe(PipelineEvents.STT_STARTED, on_stt_started)
+        bus.subscribe(PipelineEvents.STT_FINISHED, on_stt_finished)
+        bus.subscribe(PipelineEvents.TRANSCRIPT_UPDATED, on_transcript_updated)
+        bus.subscribe(PipelineEvents.TRANSCRIPT_FINAL, on_transcript_final)
+        bus.subscribe(PipelineEvents.ERROR, on_error)
+
+        # Kick off the continuous loop
+        pipeline.start_listening()
 
         while self.running:
-
-            try:
-
-                if self.ui:
-                    self.ui.set_state("LISTENING")
-
-                query = take_command(ui=self.ui)
-
-                if not query:
-                    time.sleep(0.1)
-                    continue
-
-                query = query.strip()
-
-                if query:
-
-                    print(f"[Voice] Captured: {query}")
-
-                    if self.ui:
-                        self.ui.set_state("THINKING")
-                        self.ui.set_subtitle("Processing...")
-
-                    bus.emit(
-                        "QUERY_RECEIVED",
-                        {
-                            "query": query,
-                            "ui": self.ui
-                        }
-                    )
-
-                time.sleep(0.1)
-
-            except Exception as e:
-
-                print(f"[VoiceLoop Error] {e}")
-
-                if self.ui:
-                    self.ui.set_state("IDLE")
-
-                time.sleep(1)
+            time.sleep(1)
 
     # =====================================================
     # Shutdown

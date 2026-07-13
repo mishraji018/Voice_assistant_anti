@@ -91,8 +91,24 @@ class JarvisUI:
         self._canvas = tk.Canvas(self._root, width=W, height=H, bg=BG, highlightthickness=0)
         self._canvas.pack(fill="both", expand=True)
         
+        # Developer Mode Overlay
+        self._dev_overlay = None
+        self._root.bind("<Control-D>", self.toggle_dev_overlay) # Shift-D in Tkinter can be tricky, Ctrl-D is safer
+        
         self._animate()
         self._root.mainloop()
+
+    def toggle_dev_overlay(self, event=None):
+        if self._dev_overlay and self._dev_overlay.winfo_exists():
+            self._dev_overlay.destroy()
+            self._dev_overlay = None
+        else:
+            self._dev_overlay = tk.Toplevel(self._root)
+            self._dev_overlay.title("J.A.R.V.I.S Developer Mode")
+            self._dev_overlay.configure(bg="#111111")
+            self._dev_overlay.geometry("400x300")
+            lbl = tk.Label(self._dev_overlay, text="Developer Telemetry (Coming Soon)", fg="#00ff00", bg="#111111", font=("Consolas", 12))
+            lbl.pack(pady=20)
 
     def _animate(self) -> None:
         self._tick += 1
@@ -123,12 +139,12 @@ class JarvisUI:
 
         # 3. Orbiting particles
         # THINKING state: faster orbit + amber color
-        if state == "THINKING":
+        if state in ["THINKING", "UNDERSTANDING", "GENERATING", "EXECUTING"]:
             self._p1_angle += 3.0   # 2x faster orbit
         else:
             self._p1_angle += 1.5
         p1_rad = 135
-        p1_color = ACCENT_AMBER if state == "THINKING" else ACCENT_CYAN
+        p1_color = ACCENT_AMBER if state in ["THINKING", "UNDERSTANDING", "GENERATING", "EXECUTING"] else ACCENT_CYAN
         x1 = CX + p1_rad * math.cos(math.radians(self._p1_angle))
         y1 = CY + p1_rad * math.sin(math.radians(self._p1_angle))
         c.create_oval(x1-4, y1-4, x1+4, y1+4, fill=p1_color, outline="")
@@ -138,7 +154,7 @@ class JarvisUI:
         p2_rad = 155
         x2 = CX + p2_rad * math.cos(math.radians(self._p1_angle * 0.7))
         y2 = CY + p2_rad * math.sin(math.radians(self._p1_angle * 0.7))
-        p2_color = ACCENT_AMBER if state in ["THINKING", "INITIALIZING"] else ACCENT_PURPLE
+        p2_color = ACCENT_AMBER if state in ["THINKING", "UNDERSTANDING", "GENERATING", "EXECUTING", "INITIALIZING"] else ACCENT_PURPLE
         c.create_oval(x2-3, y2-3, x2+3, y2+3, fill=p2_color, outline="")
 
         # 4. Central Orb
@@ -147,10 +163,10 @@ class JarvisUI:
             pulse = 1.0 + mic * 0.1
         elif state == "SPEAKING":
             pulse = 1.0 + 0.1 * math.sin(t * 10)
-        elif state == "THINKING":
+        elif state in ["THINKING", "UNDERSTANDING", "GENERATING"]:
             # Slow deep breathe effect
             pulse = 1.0 + 0.06 * math.sin(t * 1.5)
-        elif state == "INITIALIZING":
+        elif state in ["INITIALIZING", "EXECUTING"]:
             # Quick amber pulse
             pulse = 0.9 + 0.1 * math.sin(t * 4)
             
@@ -159,7 +175,7 @@ class JarvisUI:
         # Orb outline color changes by state
         orb_outline = "#004455"
         orb_glow    = "#00e5ff"
-        if state in ["THINKING", "INITIALIZING"]:
+        if state in ["THINKING", "UNDERSTANDING", "GENERATING", "INITIALIZING", "EXECUTING"]:
             orb_outline = "#664400"
             orb_glow    = ACCENT_AMBER
         
@@ -167,7 +183,7 @@ class JarvisUI:
         c.create_oval(CX-r-5, CY-r-5, CX+r+5, CY+r+5, outline=orb_glow, width=1)
         
         # 5. Center Icon
-        if state == "THINKING":
+        if state in ["THINKING", "UNDERSTANDING", "GENERATING", "EXECUTING"]:
             # Animated dots: "..." cycling
             dot_count = (int(t * 2) % 3) + 1
             dots_text = "·" * dot_count

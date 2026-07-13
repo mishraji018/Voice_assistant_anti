@@ -11,7 +11,7 @@ except Exception:
     ollama = None
 
 from core.state.runtime_state import state
-from brain.knowledge.engine import get_answer, _OLLAMA_MODEL
+from brain.knowledge.engine import get_answer, _OLLAMA_MODEL, groq_client, GROQ_MODEL_CHAIN
 
 logger = logging.getLogger(__name__)
 
@@ -25,33 +25,51 @@ class TaskAgent:
 
     def generate_plan(self, query: str) -> List[Dict[str, Any]]:
         """Ask LLM to break the query into a JSON plan."""
-        if ollama is None:
-            return []
         system_prompt = """
         You are a task planning agent for JARVIS.
         Break the user query into a sequence of maximum 5 actionable steps.
         Supported actions: "web_search", "info_lookup", "comparison", "summarization".
-        Return ONLY a JSON list of objects with "step" (int) and "description" (string).
-        Example: [{"step": 1, "description": "Search for best laptops under 1 lakh"}, {"step": 2, "description": "Compare top 3 models"}]
+        Return ONLY a JSON object containing a "plan" key with a list of steps.
+        Example: {"plan": [{"step": 1, "description": "Search for best laptops under 1 lakh"}, {"step": 2, "description": "Compare top 3 models"}]}
         """
         
         prompt = f"User Query: {query}\nGenerate a step-by-step plan in JSON format."
         
         try:
-            response = ollama.chat(model=_OLLAMA_MODEL, messages=[
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': prompt},
-            ])
-            content = response.get('message', {}).get('content', '').strip()
-            
-            # Extract JSON from potential marks
-            json_match = re.search(r"\[.*\]", content, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-            return []
+            if groq_client:
+                messages = [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': prompt}
+                ]
+                for model in GROQ_MODEL_CHAIN:
+                    try:
+                        response = groq_client.chat.completions.create(
+                            model=model,
+                            messages=messages,
+                            temperature=0.3,
+                            max_tokens=500,
+                            response_format={"type": "json_object"}
+                        )
+                        content = response.choices[0].message.content.strip()
+                        data = json.loads(content)
+                        return data.get("plan", [])
+                    except Exception as e:
+                        logger.warning(f"[Groq Planning] {model} failed: {e}")
+                        continue
+
+            if ollama is not None:
+                response = ollama.chat(model=_OLLAMA_MODEL, messages=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': prompt},
+                ], format='json')
+                content = response.get('message', {}).get('content', '').strip()
+                data = json.loads(content)
+                return data.get("plan", [])
+                
         except Exception as e:
             logger.error(f"Planning error: {e}")
-            return []
+            
+        return []
 
     def execute_plan(self, query: str, callback=None) -> str:
         """Execute the generated plan sequentially."""
